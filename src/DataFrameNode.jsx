@@ -163,6 +163,16 @@ export default function DataFrameNode({ id, data }) {
       onDragLeave={onNodeDragLeave}
       onDrop={onNodeDrop}
     >
+      {/* Node-level handles for Merge connections (teal squares, top corners) */}
+      <Handle
+        type="target" id="df-in" position={Position.Left}
+        style={{ top: 14, background: '#0d9488', border: '2px solid #042f2e', width: 8, height: 8, borderRadius: 2 }}
+      />
+      <Handle
+        type="source" id="df-out" position={Position.Right}
+        style={{ top: 14, background: '#0d9488', border: '2px solid #042f2e', width: 8, height: 8, borderRadius: 2 }}
+      />
+
       {/* Header */}
       <div
         className="px-3 py-2 border-b border-blue-900 flex items-center justify-between cursor-grab active:cursor-grabbing"
