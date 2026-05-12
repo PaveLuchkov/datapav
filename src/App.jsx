@@ -122,6 +122,18 @@ function App() {
     );
   }, [setNodes, setEdges]);
 
+  const onReorderAttributes = useCallback((nodeId, fromIndex, toIndex) => {
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id !== nodeId) return n;
+        const attrs = [...n.data.attributes];
+        const [moved] = attrs.splice(fromIndex, 1);
+        attrs.splice(toIndex > fromIndex ? toIndex - 1 : toIndex, 0, moved);
+        return { ...n, data: { ...n.data, attributes: attrs } };
+      })
+    );
+  }, [setNodes]);
+
   const onAttributeDrop = useCallback((targetNodeId, { sourceNodeId, attrId, attrName }) => {
     const newAttr = makeAttr(attrName);
     setNodes((nds) =>
@@ -145,7 +157,7 @@ function App() {
     ]);
   }, [setNodes, setEdges]);
 
-  callbacks.current = { onLabelChange, onAttributeChange, onAddAttribute, onDeleteAttribute, onAttributeDrop };
+  callbacks.current = { onLabelChange, onAttributeChange, onAddAttribute, onDeleteAttribute, onAttributeDrop, onReorderAttributes };
 
   // Inject callbacks into every node's data
   const nodesWithCallbacks = useMemo(
