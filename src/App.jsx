@@ -8,6 +8,7 @@ import FunctionNode from './FunctionNode';
 import Toolbar from './Toolbar';
 import { DragProvider } from './components/DragContext';
 import ContextMenu from './components/ContextMenu';
+import NodeErrorBoundary from './components/NodeErrorBoundary';
 import { useLineageState } from './hooks/useLineageState';
 import { useLineagePersistence } from './hooks/useLineagePersistence';
 import { useContextMenu } from './hooks/useContextMenu';
@@ -19,7 +20,17 @@ function isValidConnection({ sourceHandle, targetHandle }) {
   return false;
 }
 
-const nodeTypes = { dataFrameNode: DataFrameNode, mergeNode: MergeNode, functionNode: FunctionNode };
+function withErrorBoundary(NodeComponent) {
+  return function BoundedNode(props) {
+    return <NodeErrorBoundary><NodeComponent {...props} /></NodeErrorBoundary>;
+  };
+}
+
+const nodeTypes = {
+  dataFrameNode: withErrorBoundary(DataFrameNode),
+  mergeNode:     withErrorBoundary(MergeNode),
+  functionNode:  withErrorBoundary(FunctionNode),
+};
 
 export default function App() {
   const reactFlowWrapper = useRef(null);
