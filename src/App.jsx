@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
+import { uid } from './utils/uid';
 import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -7,6 +8,7 @@ import { DragProvider } from './components/DragContext';
 import ContextMenu from './components/ContextMenu';
 import SearchModal from './components/SearchModal';
 import TabBar from './components/TabBar';
+import SqlImportModal from './components/SqlImportModal';
 import { useLineageState } from './hooks/useLineageState';
 import { useLineagePersistence } from './hooks/useLineagePersistence';
 import { useCanvasTabs } from './hooks/useCanvasTabs';
@@ -82,6 +84,20 @@ export default function App() {
     setTimeout(() => reactFlowInstance.current?.fitView({ padding: 0.12 }), 50);
   }, [nodes, edges, applyLayout, restoreState]);
 
+  // ── SQL import ────────────────────────────────────────────────────────
+
+  const [sqlImportOpen, setSqlImportOpen] = useState(false);
+
+  const handleSqlImport = useCallback(({ columns, tableName }) => {
+    const pos = reactFlowInstance.current
+      ? reactFlowInstance.current.screenToFlowPosition({ x: 300, y: 200 })
+      : { x: 300, y: 200 };
+    addNodeOfType('dataFrameNode', pos.x, pos.y, {
+      label: tableName || 'query_result',
+      attributes: columns.map((name) => ({ id: uid(), name, type: 'string' })),
+    });
+  }, [addNodeOfType]);
+
   // ── Search ─────────────────────────────────────────────────────────────
 
   const [searchOpen, setSearchOpen] = useState(false);
@@ -148,6 +164,7 @@ export default function App() {
           onRedo={redo}
           onAutoLayout={handleAutoLayout}
           onSearch={() => setSearchOpen(true)}
+          onImportSql={() => setSqlImportOpen(true)}
         />
 
         <ContextMenu
@@ -170,6 +187,13 @@ export default function App() {
             nodes={nodes}
             onNavigate={navigateToNode}
             onClose={() => setSearchOpen(false)}
+          />
+        )}
+
+        {sqlImportOpen && (
+          <SqlImportModal
+            onClose={() => setSqlImportOpen(false)}
+            onImport={handleSqlImport}
           />
         )}
 

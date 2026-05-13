@@ -221,11 +221,11 @@ export function useLineageState() {
   }, [undo, redo, pushHistory, setEdges, setNodes]);
 
   // Generic add — looks up config by type, calls config.make()
-  const addNodeOfType = useCallback((type, x, y) => {
+  const addNodeOfType = useCallback((type, x, y, dataOverrides) => {
     const entry = NODE_REGISTRY.find((e) => e.config.type === type);
     if (!entry) return;
     pushHistory();
-    setNodes((nds) => [...nds, entry.config.make(x, y)]);
+    setNodes((nds) => [...nds, entry.config.make(x, y, dataOverrides)]);
   }, [setNodes, pushHistory]);
 
   const deleteNode = useCallback((nodeId) => {
