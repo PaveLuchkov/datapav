@@ -13,6 +13,7 @@ import { useLineageState } from './hooks/useLineageState';
 import { useLineagePersistence } from './hooks/useLineagePersistence';
 import { useContextMenu } from './hooks/useContextMenu';
 import { useAutoLayout } from './hooks/useAutoLayout';
+import SearchModal from './components/SearchModal';
 
 function isValidConnection({ sourceHandle, targetHandle }) {
   if (sourceHandle?.endsWith('-source') && targetHandle?.endsWith('-target')) return true;
@@ -111,11 +112,35 @@ export default function App() {
     setTimeout(() => reactFlowInstance.current?.fitView({ padding: 0.12 }), 50);
   }, [nodes, edges, applyLayout, restoreState]);
 
+  // ── Search ─────────────────────────────────────────────────────────────
+
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  const navigateToNode = useCallback((nodeId) => {
+    const target = nodes.find((n) => n.id === nodeId);
+    if (!target || !reactFlowInstance.current) return;
+    reactFlowInstance.current.fitView({
+      nodes: [target],
+      duration: 600,
+      maxZoom: 1.5,
+      padding: 0.4,
+    });
+  }, [nodes]);
+
+  const handleKeyDown = useCallback((e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      setSearchOpen(true);
+      return;
+    }
+    onKeyDown(e);
+  }, [onKeyDown]);
+
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
     <DragProvider>
-      <div className="w-screen h-screen bg-slate-900 relative" onKeyDown={onKeyDown} tabIndex={0}>
+      <div className="w-screen h-screen bg-slate-900 relative" onKeyDown={handleKeyDown} tabIndex={0}>
         <div ref={reactFlowWrapper} className="w-full h-full">
           <ReactFlow
             nodes={nodesWithCallbacks}
@@ -155,6 +180,7 @@ export default function App() {
           onUndo={undo}
           onRedo={redo}
           onAutoLayout={handleAutoLayout}
+          onSearch={() => setSearchOpen(true)}
         />
 
         <ContextMenu
@@ -170,6 +196,14 @@ export default function App() {
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-blue-700 text-white text-sm shadow-xl pointer-events-none">
             {toast}
           </div>
+        )}
+
+        {searchOpen && (
+          <SearchModal
+            nodes={nodes}
+            onNavigate={navigateToNode}
+            onClose={() => setSearchOpen(false)}
+          />
         )}
       </div>
     </DragProvider>

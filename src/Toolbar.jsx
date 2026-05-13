@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Toolbar({ onAddNode, onAddFunction, onSave, onLoad, onExportPng, selectedDFCount, onMergeSelected, onUndo, onRedo, onAutoLayout }) {
+export default function Toolbar({ onAddNode, onAddFunction, onSave, onLoad, onExportPng, selectedDFCount, onMergeSelected, onUndo, onRedo, onAutoLayout, onSearch }) {
   const canMerge = selectedDFCount === 2;
 
   return (
@@ -74,6 +74,17 @@ export default function Toolbar({ onAddNode, onAddFunction, onSave, onLoad, onEx
 
       <button onClick={onExportPng} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">
         Export PNG
+      </button>
+
+      <div className="w-px bg-slate-600 self-stretch" />
+
+      <button
+        onClick={onSearch}
+        title="Search nodes and columns (Cmd+K)"
+        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors flex items-center gap-1.5"
+      >
+        <span>⌕</span>
+        <kbd className="text-slate-500 text-xs" style={{ fontSize: 9 }}>⌘K</kbd>
       </button>
 
       {selectedDFCount > 0 && (
