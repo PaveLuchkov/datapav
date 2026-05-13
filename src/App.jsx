@@ -39,7 +39,7 @@ export default function App() {
   const {
     nodes, edges, onNodesChange, onEdgesChange,
     nodesWithCallbacks, selectedDFs,
-    onConnect, onKeyDown,
+    onConnect, onKeyDown, undo, redo,
     addNode, addFunctionNode, deleteNode, createMerge, restoreState,
   } = useLineageState();
 
@@ -143,6 +143,8 @@ export default function App() {
           onExportPng={exportPng}
           selectedDFCount={selectedDFs.length}
           onMergeSelected={handleMergeSelected}
+          onUndo={undo}
+          onRedo={redo}
         />
 
         <ContextMenu

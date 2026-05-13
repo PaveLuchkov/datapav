@@ -46,6 +46,40 @@ export function useLineageState() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
+  // ── History ────────────────────────────────────────────────────────────
+  const history = useRef([]);
+  const future  = useRef([]);
+  // Always-current refs so snapshots can be taken synchronously
+  const nodesRef = useRef([]);
+  const edgesRef = useRef([]);
+  nodesRef.current = nodes;
+  edgesRef.current = edges;
+
+  const pushHistory = useCallback(() => {
+    history.current = [...history.current.slice(-49), { nodes: nodesRef.current, edges: edgesRef.current }];
+    future.current = [];
+  }, []);
+
+  const undo = useCallback(() => {
+    if (!history.current.length) return;
+    const prev = history.current[history.current.length - 1];
+    future.current = [{ nodes: nodesRef.current, edges: edgesRef.current }, ...future.current.slice(0, 49)];
+    history.current = history.current.slice(0, -1);
+    setNodes(prev.nodes);
+    setEdges(prev.edges);
+  }, [setNodes, setEdges]);
+
+  const redo = useCallback(() => {
+    if (!future.current.length) return;
+    const next = future.current[0];
+    history.current = [...history.current.slice(-49), { nodes: nodesRef.current, edges: edgesRef.current }];
+    future.current = future.current.slice(1);
+    setNodes(next.nodes);
+    setEdges(next.edges);
+  }, [setNodes, setEdges]);
+
+  // ── Init ───────────────────────────────────────────────────────────────
+
   const [initialized, setInitialized] = useState(false);
   if (!initialized) {
     setInitialized(true);
@@ -63,26 +97,30 @@ export function useLineageState() {
   // ── DataFrame callbacks ────────────────────────────────────────────────
 
   const onLabelChange = useCallback((nodeId, label) => {
+    pushHistory();
     setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, label } } : n));
-  }, [setNodes]);
+  }, [setNodes, pushHistory]);
 
   const onAttributeChange = useCallback((nodeId, attrId, name) => {
+    pushHistory();
     setNodes((nds) => nds.map((n) =>
       n.id === nodeId
         ? { ...n, data: { ...n.data, attributes: n.data.attributes.map((a) => a.id === attrId ? { ...a, name } : a) } }
         : n
     ));
-  }, [setNodes]);
+  }, [setNodes, pushHistory]);
 
   const onAddAttribute = useCallback((nodeId) => {
+    pushHistory();
     setNodes((nds) => nds.map((n) =>
       n.id === nodeId
         ? { ...n, data: { ...n.data, attributes: [...n.data.attributes, makeAttr('column')] } }
         : n
     ));
-  }, [setNodes]);
+  }, [setNodes, pushHistory]);
 
   const onDeleteAttribute = useCallback((nodeId, attrId) => {
+    pushHistory();
     setNodes((nds) => nds.map((n) =>
       n.id === nodeId
         ? { ...n, data: { ...n.data, attributes: n.data.attributes.filter((a) => a.id !== attrId) } }
@@ -91,9 +129,10 @@ export function useLineageState() {
     setEdges((eds) =>
       eds.filter((e) => !e.sourceHandle?.startsWith(attrId) && !e.targetHandle?.startsWith(attrId))
     );
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, pushHistory]);
 
   const onReorderAttributes = useCallback((nodeId, fromIndex, toIndex) => {
+    pushHistory();
     setNodes((nds) => nds.map((n) => {
       if (n.id !== nodeId) return n;
       const attrs = [...n.data.attributes];
@@ -101,9 +140,10 @@ export function useLineageState() {
       attrs.splice(toIndex > fromIndex ? toIndex - 1 : toIndex, 0, moved);
       return { ...n, data: { ...n.data, attributes: attrs } };
     }));
-  }, [setNodes]);
+  }, [setNodes, pushHistory]);
 
   const onAttributeDrop = useCallback((targetNodeId, { sourceNodeId, attrId, attrName }) => {
+    pushHistory();
     const newAttr = makeAttr(attrName);
     setNodes((nds) => nds.map((n) =>
       n.id === targetNodeId
@@ -116,41 +156,46 @@ export function useLineageState() {
       target: targetNodeId, targetHandle: `${newAttr.id}-target`,
       type: 'smoothstep',
     }]);
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, pushHistory]);
 
   // ── MergeNode callbacks ────────────────────────────────────────────────
 
   const onJoinTypeChange = useCallback((nodeId, joinType) => {
+    pushHistory();
     setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, joinType } } : n));
-  }, [setNodes]);
+  }, [setNodes, pushHistory]);
 
   const onAddKey = useCallback((nodeId) => {
+    pushHistory();
     setNodes((nds) => nds.map((n) =>
       n.id === nodeId
         ? { ...n, data: { ...n.data, keyPairs: [...(n.data.keyPairs || []), { left: '', right: '' }] } }
         : n
     ));
-  }, [setNodes]);
+  }, [setNodes, pushHistory]);
 
   const onRemoveKey = useCallback((nodeId, index) => {
+    pushHistory();
     setNodes((nds) => nds.map((n) =>
       n.id === nodeId
         ? { ...n, data: { ...n.data, keyPairs: (n.data.keyPairs || []).filter((_, i) => i !== index) } }
         : n
     ));
-  }, [setNodes]);
+  }, [setNodes, pushHistory]);
 
   const onUpdateKey = useCallback((nodeId, index, side, value) => {
+    pushHistory();
     setNodes((nds) => nds.map((n) =>
       n.id === nodeId
         ? { ...n, data: { ...n.data, keyPairs: (n.data.keyPairs || []).map((p, i) => i === index ? { ...p, [side]: value } : p) } }
         : n
     ));
-  }, [setNodes]);
+  }, [setNodes, pushHistory]);
 
   // ── FunctionNode callbacks ─────────────────────────────────────────────
 
   const onFunctionInputDrop = useCallback((funcNodeId, { sourceNodeId, attrId, attrName, sourceNodeLabel }) => {
+    pushHistory();
     const newInput = { id: uid(), attrName, sourceNodeId, sourceNodeLabel: sourceNodeLabel || sourceNodeId, sourceAttrId: attrId };
     setNodes((nds) => nds.map((n) =>
       n.id === funcNodeId
@@ -165,41 +210,45 @@ export function useLineageState() {
       style: { stroke: '#10b981', strokeWidth: 1.5 },
       markerEnd: { type: MarkerType.ArrowClosed, color: '#10b981' },
     }]);
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, pushHistory]);
 
   const onDeleteFunctionInput = useCallback((funcNodeId, inputId) => {
+    pushHistory();
     setNodes((nds) => nds.map((n) =>
       n.id === funcNodeId
         ? { ...n, data: { ...n.data, inputs: n.data.inputs.filter((i) => i.id !== inputId) } }
         : n
     ));
     setEdges((eds) => eds.filter((e) => e.targetHandle !== `${inputId}-target`));
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, pushHistory]);
 
   const onAddFunctionOutput = useCallback((funcNodeId) => {
+    pushHistory();
     setNodes((nds) => nds.map((n) =>
       n.id === funcNodeId
         ? { ...n, data: { ...n.data, outputs: [...n.data.outputs, makeAttr('output_col')] } }
         : n
     ));
-  }, [setNodes]);
+  }, [setNodes, pushHistory]);
 
   const onDeleteFunctionOutput = useCallback((funcNodeId, outputId) => {
+    pushHistory();
     setNodes((nds) => nds.map((n) =>
       n.id === funcNodeId
         ? { ...n, data: { ...n.data, outputs: n.data.outputs.filter((o) => o.id !== outputId) } }
         : n
     ));
     setEdges((eds) => eds.filter((e) => !e.sourceHandle?.startsWith(outputId) && !e.targetHandle?.startsWith(outputId)));
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, pushHistory]);
 
   const onFunctionOutputChange = useCallback((funcNodeId, outputId, name) => {
+    pushHistory();
     setNodes((nds) => nds.map((n) =>
       n.id === funcNodeId
         ? { ...n, data: { ...n.data, outputs: n.data.outputs.map((o) => o.id === outputId ? { ...o, name } : o) } }
         : n
     ));
-  }, [setNodes]);
+  }, [setNodes, pushHistory]);
 
   callbacks.current = {
     onLabelChange, onAttributeChange, onAddAttribute, onDeleteAttribute,
@@ -239,6 +288,7 @@ export function useLineageState() {
   // ── Graph operations ───────────────────────────────────────────────────
 
   const onConnect = useCallback((params) => {
+    pushHistory();
     const isMergeEdge = params.sourceHandle === 'df-out' || params.sourceHandle === 'out';
     setEdges((eds) => addEdge(
       isMergeEdge
@@ -246,10 +296,19 @@ export function useLineageState() {
         : { ...params, type: 'smoothstep' },
       eds
     ));
-  }, [setEdges]);
+  }, [setEdges, pushHistory]);
 
   const onKeyDown = useCallback((e) => {
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
+      e.preventDefault(); undo(); return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) {
+      e.preventDefault(); redo(); return;
+    }
     if (e.key === 'Delete' || e.key === 'Backspace') {
+      pushHistory();
       setEdges((eds) => eds.filter((ed) => !ed.selected));
       setNodes((nds) => {
         const toDelete = new Set(nds.filter((n) => n.selected).map((n) => n.id));
@@ -257,22 +316,26 @@ export function useLineageState() {
         return nds.filter((n) => !n.selected);
       });
     }
-  }, [setEdges, setNodes]);
+  }, [undo, redo, pushHistory, setEdges, setNodes]);
 
   const addNode = useCallback((x, y) => {
+    pushHistory();
     setNodes((nds) => [...nds, makeNode('new_dataframe', x, y, ['column_1'])]);
-  }, [setNodes]);
+  }, [setNodes, pushHistory]);
 
   const addFunctionNode = useCallback((x, y) => {
+    pushHistory();
     setNodes((nds) => [...nds, makeFunctionNode('my_function', x, y)]);
-  }, [setNodes]);
+  }, [setNodes, pushHistory]);
 
   const deleteNode = useCallback((nodeId) => {
+    pushHistory();
     setNodes((nds) => nds.filter((n) => n.id !== nodeId));
     setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, pushHistory]);
 
   const createMerge = useCallback((dfs) => {
+    pushHistory();
     const [a, b] = dfs;
     const midX = (a.position.x + b.position.x) / 2 + 20;
     const midY = (a.position.y + b.position.y) / 2 - 40;
@@ -291,9 +354,11 @@ export function useLineageState() {
       makeMergeEdge(b.id, 'df-out', mergeId, 'right-in'),
       makeMergeEdge(mergeId, 'out', resultNode.id, 'df-in'),
     ]);
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, pushHistory]);
 
   const restoreState = useCallback((newNodes, newEdges) => {
+    history.current = [];
+    future.current = [];
     setNodes(newNodes);
     setEdges(newEdges);
   }, [setNodes, setEdges]);
@@ -301,7 +366,7 @@ export function useLineageState() {
   return {
     nodes, edges, onNodesChange, onEdgesChange,
     nodesWithCallbacks, selectedDFs,
-    onConnect, onKeyDown,
+    onConnect, onKeyDown, undo, redo,
     addNode, addFunctionNode, deleteNode, createMerge, restoreState,
   };
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Toolbar({ onAddNode, onAddFunction, onSave, onLoad, onExportPng, selectedDFCount, onMergeSelected }) {
+export default function Toolbar({ onAddNode, onAddFunction, onSave, onLoad, onExportPng, selectedDFCount, onMergeSelected, onUndo, onRedo }) {
   const canMerge = selectedDFCount === 2;
 
   return (
@@ -32,6 +32,23 @@ export default function Toolbar({ onAddNode, onAddFunction, onSave, onLoad, onEx
         }`}
       >
         ⋈ Merge
+      </button>
+
+      <div className="w-px bg-slate-600 self-stretch" />
+
+      <button
+        onClick={onUndo}
+        title="Undo (Ctrl+Z)"
+        className="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+      >
+        ↩
+      </button>
+      <button
+        onClick={onRedo}
+        title="Redo (Ctrl+Y)"
+        className="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+      >
+        ↪
       </button>
 
       <div className="w-px bg-slate-600 self-stretch" />
