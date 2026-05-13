@@ -36,5 +36,38 @@ export function useLineagePersistence({ nodes, edges, restoreState, showToast })
     });
   }, [nodes]);
 
-  return { saveState, loadState, exportPng };
+  const saveToFile = useCallback(() => {
+    const json = JSON.stringify({ nodes, edges }, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lineage-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [nodes, edges]);
+
+  const loadFromFile = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const { nodes: sn, edges: se } = JSON.parse(ev.target.result);
+          restoreState(sn, se);
+          showToast(`Loaded ${file.name}`);
+        } catch {
+          showToast('Invalid JSON file');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }, [restoreState, showToast]);
+
+  return { saveState, loadState, exportPng, saveToFile, loadFromFile };
 }

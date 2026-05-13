@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function Toolbar({
   addableNodes, onAddNode,
-  onSave, onLoad, onExportPng,
+  onSave, onLoad, onSaveToFile, onLoadFromFile, onExportPng,
   selectedDFCount, onMergeSelected,
   onUndo, onRedo, onAutoLayout, onSearch,
 }) {
@@ -49,8 +49,9 @@ export default function Toolbar({
 
       <div className="w-px bg-slate-600 self-stretch" />
 
-      <button onClick={onSave} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">Save</button>
-      <button onClick={onLoad} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">Load</button>
+      <button onClick={onSaveToFile} title="Save canvas to .json file" className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">⬇ Save JSON</button>
+      <button onClick={onLoadFromFile} title="Open canvas from .json file" className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">⬆ Open JSON</button>
+      <button onClick={onSave} title="Quick-save to browser cache" className="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors">💾</button>
 
       <div className="w-px bg-slate-600 self-stretch" />
 

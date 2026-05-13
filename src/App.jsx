@@ -35,7 +35,7 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(null), 2000);
   }, []);
 
-  const { saveState, loadState, exportPng } = useLineagePersistence({
+  const { saveState, loadState, exportPng, saveToFile, loadFromFile } = useLineagePersistence({
     nodes, edges, restoreState, showToast,
   });
 
@@ -133,6 +133,8 @@ export default function App() {
           onAddNode={addNodeCenter}
           onSave={saveState}
           onLoad={loadState}
+          onSaveToFile={saveToFile}
+          onLoadFromFile={loadFromFile}
           onExportPng={exportPng}
           selectedDFCount={selectedDFs.length}
           onMergeSelected={handleMergeSelected}
