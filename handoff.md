@@ -4,11 +4,11 @@
 
 A web app for a data analyst to visually document DataFrame lineage.
 The mental model: you build a graph where nodes are DataFrames (with columns),
-edges are derivation relationships between columns, and join operations are
-explicit MergeNodes sitting between source and result DataFrames.
+edges are derivation relationships between columns, and operator nodes (Merge, Filter, GroupBy)
+sit between source and result DataFrames.
 
 End state imagined: open the app, drag columns across DataFrames to show where
-each column came from, place a MergeNode to document a join, export the diagram
+each column came from, place operator nodes to document transformations, export the diagram
 as PNG or save it for the next session.
 
 ---
@@ -28,6 +28,7 @@ Start with: `PORT=3001 npm start` from `lineage-editor/`.
 
 ### Git history (latest first)
 ```
+(registry refactor)  Restructure: node registry pattern — each type self-contained in nodes/<type>/
 0a2cf8a  Add test suite: 22 tests across App, EditableText, ContextMenu, useLineagePersistence
 0332269  Add NodeErrorBoundary to isolate node render crashes
 283ac66  Refactor: extract ContextMenu component and useContextMenu hook
@@ -35,8 +36,6 @@ Start with: `PORT=3001 npm start` from `lineage-editor/`.
 9c10dbb  Fix node ID collisions across sessions by seeding idCounter from Date.now()
 f0c0dc8  Fix keyPairs not iterable crash when MergeNode data lacks keyPairs field
 7e9bece  Redesign MergeNode: two-panel layout with dropdown key selectors and auto output columns
-6af74e3  Add FunctionNode: two-panel black-box operator with grouped inputs and draggable outputs
-8394c54  Add MergeNode: visual join operator with type selector and key pairs editor
 ```
 
 ---
@@ -45,23 +44,40 @@ f0c0dc8  Fix keyPairs not iterable crash when MergeNode data lacks keyPairs fiel
 
 ```
 src/
+├── nodes/                        ← one directory per node type
+│   ├── registry.js               ← SINGLE entry point: nodeTypes, isValidConnection,
+│   │                                getMinimapColor, ADDABLE_NODES, getDagre*, getNodeDisplayName
+│   ├── dataframe/
+│   │   ├── index.jsx             ← DataFrameNode component
+│   │   ├── config.js             ← colors, dagreWidth/Height, make(), menu, connections
+│   │   └── callbacks.js          ← useDataFrameCallbacks(setNodes, setEdges, pushHistory)
+│   ├── merge/
+│   │   ├── index.jsx             ← MergeNode component
+│   │   ├── config.js
+│   │   └── callbacks.js          ← useMergeCallbacks(setNodes, pushHistory)
+│   └── function/
+│       ├── index.jsx             ← FunctionNode component
+│       ├── config.js
+│       └── callbacks.js          ← useFunctionCallbacks(setNodes, setEdges, pushHistory)
+├── utils/
+│   └── uid.js                    ← shared ID counter (Date.now() seed)
 ├── components/
-│   ├── ContextMenu.jsx       — Presentational context menu (pane / node variants)
-│   ├── DragContext.jsx       — React Context with useRef for drag state (no re-renders)
-│   ├── EditableText.jsx      — Shared inline-edit component (double-click to edit)
-│   ├── NodeErrorBoundary.jsx — Class component; isolates node render crashes
-│   └── SearchModal.jsx       — Cmd+K search overlay: label + column search, keyboard nav
+│   ├── ContextMenu.jsx           ← reads ADDABLE_NODES from registry; node label from getNodeDisplayName
+│   ├── DragContext.jsx           ← React Context with useRef for drag state (no re-renders)
+│   ├── EditableText.jsx          ← shared inline-edit component (double-click to edit)
+│   ├── NodeErrorBoundary.jsx     ← class component; isolates node render crashes
+│   └── SearchModal.jsx           ← Cmd+K search overlay
 ├── hooks/
-│   ├── useAutoLayout.js      — dagre LR layout; returns applyLayout(nodes, edges)
-│   ├── useContextMenu.js     — menu state + onPaneContextMenu / onNodeContextMenu
-│   ├── useLineagePersistence.js — save / load localStorage, export PNG
-│   └── useLineageState.js    — all nodes/edges state, callbacks, history, graph operations
-├── constants.js              — DRAG_TYPE, STORAGE_KEY, COLORS, SIZES, JOIN_TYPES, ATTR_TYPES, ATTR_TYPE_META
-├── App.jsx                   — UI shell: ReactFlow wiring, toast, toolbar actions
-├── DataFrameNode.jsx         — Custom RF node: editable title, draggable attribute rows, type badges
-├── FunctionNode.jsx          — Custom RF node: input drop zone + draggable outputs
-├── MergeNode.jsx             — Custom RF node: join type, key pairs, output columns
-└── Toolbar.jsx               — Top bar buttons
+│   ├── useAutoLayout.js          ← dagre LR layout; sizes come from registry
+│   ├── useContextMenu.js         ← menu state + onPaneContextMenu / onNodeContextMenu
+│   ├── useLineagePersistence.js  ← save / load localStorage, export PNG
+│   └── useLineageState.js        ← state + history; composes per-type callback hooks;
+│                                    addNodeOfType(type, x, y) uses registry config.make()
+├── constants.js                  ← DRAG_TYPE, STORAGE_KEY, JOIN_TYPES, JOIN_ACTIVE_STYLES,
+│                                    ATTR_TYPES, ATTR_TYPE_META  (no per-node colors/sizes)
+├── App.jsx                       ← UI shell: imports nodeTypes/isValidConnection/getMinimapColor
+│                                    from registry; passes addableNodes to Toolbar + ContextMenu
+└── Toolbar.jsx                   ← add-node buttons rendered from ADDABLE_NODES
 ```
 
 ---
@@ -97,26 +113,23 @@ src/
 ### Canvas
 - Pan + zoom (React Flow built-in)
 - Drag nodes from header area
-- Right-click canvas → "Add DataFrame here" / "ƒ Add Function here" (at cursor position)
+- Right-click canvas → per-registry add menu + "⋈ Merge selected DFs" (when 2 DFs selected)
 - Right-click node → "Delete …"
 - Select nodes + Delete key → removes nodes and their edges
 - Click edge + Delete → removes edge
-- `isValidConnection` enforces edge semantics:
-  - `-source` → `-target` handles: column lineage only
-  - `df-out` → `left-in`/`right-in`: DataFrame to MergeNode
-  - `out` → `df-in`: MergeNode to DataFrame
+- `isValidConnection` is assembled from registry: column `-source → -target` (global rule) + per-node `connections` arrays
 
 ### Undo / Redo
 - `Ctrl+Z` / `Cmd+Z` — undo last mutation
 - `Ctrl+Y` / `Ctrl+Shift+Z` — redo
 - Also exposed as ↩ / ↪ toolbar buttons
 - History stack lives in `useLineageState` (max 50 snapshots, refs-based — no re-renders)
-- Every mutation (add/delete/reorder/connect/type-change/text-edit) pushes a snapshot beforehand
+- Every mutation pushes a snapshot beforehand
 - Load / restoreState clears both stacks
 
 ### Auto-layout
 - **⬦ Auto-arrange** toolbar button — runs dagre LR layout, then `fitView`
-- `useAutoLayout.js` builds a dagre graph with type-aware node sizes
+- `useAutoLayout.js` pulls node sizes from `getDagreWidth` / `getDagreHeight` in registry
 - Result goes through `restoreState`, so it is itself undoable
 
 ### Search (`Cmd+K`)
@@ -125,7 +138,6 @@ src/
 - Results show type icon, node name; column matches show `node › column` with type badge
 - Click result (or Enter on selected item) → `fitView` to that node with animation
 - Arrow keys navigate results, Escape closes
-- Empty query shows all nodes as quick-pick list
 
 ### Persistence
 - Save / Load buttons → `localStorage` key `lineage-editor-state`
@@ -134,21 +146,49 @@ src/
 
 ### Export
 - Export PNG → `html-to-image` renders React Flow viewport, downloads `lineage.png`
-- Fits all nodes into frame before capture
 
 ---
 
 ## Architecture Notes
 
-### Callback pattern
-All node mutation callbacks live in `useLineageState` and are injected into every
-node's `data` object via `attachCallbacks()` + a `callbacks.current` ref pattern.
-This avoids stale closures without recreating node objects on every render.
+### Node Registry pattern
+Each node type lives in `src/nodes/<type>/` with three files:
 
+| File | Purpose |
+|---|---|
+| `index.jsx` | React component |
+| `config.js` | Static config: `type`, `colors`, `minimapColor`, `dagreWidth`, `dagreHeight(node)`, `make(x, y, dataOverrides?)`, `menu?`, `connections` |
+| `callbacks.js` | `use<Type>Callbacks(setNodes, setEdges?, pushHistory)` hook |
+
+`src/nodes/registry.js` assembles everything:
+- `nodeTypes` — ReactFlow map (each component wrapped in `NodeErrorBoundary`)
+- `isValidConnection` — column-level pattern + explicit rules from `config.connections`
+- `getMinimapColor(node)` — reads `config.minimapColor`
+- `getDagreWidth(type)` / `getDagreHeight(node)` — reads `config.dagreWidth/Height`
+- `ADDABLE_NODES` — configs that have a `menu` field (mergeNode has none)
+- `getNodeDisplayName(type)` — reads `config.menu.label`
+
+### Adding a new node type (the full recipe)
+1. Create `src/nodes/<type>/config.js` — define colors, `make()`, `menu`, `connections`
+2. Create `src/nodes/<type>/callbacks.js` — export `use<Type>Callbacks` hook
+3. Create `src/nodes/<type>/index.jsx` — the React component
+4. Add **one line** to `registry.js`: `{ config: myConfig, component: MyNode }`
+
+That's it. `nodeTypes`, `isValidConnection`, `ADDABLE_NODES`, `getDagre*`, `getMinimapColor` all update automatically.
+
+### Callback pattern
+All node mutation callbacks are split into per-type hooks (`useDataFrameCallbacks`, etc.)
+and composed in `useLineageState`:
+
+```js
+const dfCbs = useDataFrameCallbacks(setNodes, setEdges, pushHistory);
+const mgCbs = useMergeCallbacks(setNodes, pushHistory);
+const fnCbs = useFunctionCallbacks(setNodes, setEdges, pushHistory);
+callbacks.current = { ...dfCbs, ...mgCbs, ...fnCbs };
 ```
-callbacks.current = { onLabelChange, onAttributeChange, ... }
-nodesWithCallbacks = useMemo(() => attachCallbacks(enriched, callbacks.current), [nodes, edges])
-```
+
+Then injected into every node's `data` via `attachCallbacks()` + a `callbacks.current` ref
+(avoids stale closures without recreating node objects on every render).
 
 ### Undo/Redo pattern
 `history` and `future` are plain refs (not state) holding `{ nodes, edges }` snapshots.
@@ -168,9 +208,14 @@ Two independent drag flows share the same HTML5 `draggable` API:
 `DragContext` (React Context + `useRef`) stores the active drag payload.
 Read happens synchronously in event handlers — no re-renders triggered.
 
-### Error isolation
-Each node type is wrapped with `NodeErrorBoundary` via `withErrorBoundary()` in App.jsx.
-A crash in one node renders an inline error card, not a blank canvas.
+### `isValidConnection` rules
+```
+Column lineage:   *-source  →  *-target       (global, all nodes)
+DF → Merge:       df-out    →  left-in / right-in
+Merge → DF:       out       →  df-in
+```
+New operator types declare their own rules in `config.connections`.
+Example for FilterNode: `[['df-out', 'filter-in'], ['filter-out', 'df-in']]`
 
 ---
 
@@ -202,51 +247,53 @@ Fixed with the `DragContext` ref set at `dragstart`.
 
 ## Next Things To Build
 
+### In progress / decided
+
+**Filter node** (`filterNode`)
+- Single input (`filter-in`) + single output (`filter-out`) — both DF-level handles
+- Body: one text field for the condition (e.g. `amount > 100`)
+- Connections: `['df-out', 'filter-in']`, `['filter-out', 'df-in']`
+- Color scheme: amber/orange (distinct from existing types)
+- Recipe: `nodes/filter/{config,callbacks,index}.jsx` + one line in `registry.js`
+
+**GroupBy / Agg node** (`groupByNode`)
+- Single input DF, single output DF
+- UI: list of group-by columns (multi-select from input DF) + aggregation rows (col → fn → output name)
+- Agg functions: `sum`, `mean`, `count`, `min`, `max`, `first`, `last`
+- Connections same pattern as FilterNode
+
+**Comment / annotation node** (`commentNode`)
+- No handles — pure canvas decoration
+- Body: resizable textarea
+- Optional color picker (sticky-note palette)
+- `menu` entry in config so it appears in right-click / toolbar
+- No callbacks needed (just `onLabelChange` for text)
+
 ### Medium priority
 
 **Export to SQL**
-The graph already contains all structure needed to generate:
+Walk nodes/edges, generate:
 ```sql
-SELECT l.order_id, r.name, r.email
+SELECT l.order_id, r.name
 FROM raw_orders l
 INNER JOIN raw_customers r ON l.customer_id = r.customer_id
 ```
-Walk nodes/edges in `useLineagePersistence`, generate SQL string, copy to clipboard
-or download as `.sql`. Start with MergeNode → `JOIN`, DataFrameNode → `FROM`.
+Start with MergeNode → `JOIN`, DataFrameNode → `FROM`.
+Lives in `useLineagePersistence`, copy to clipboard or download `.sql`.
 
 **Copy / paste nodes (`Ctrl+C` / `Ctrl+D`)**
-Duplicating a DataFrame with the same columns is a frequent operation.
 Store copied node in a ref, paste offset by (+40, +40).
 
 ### Lower priority
 
-**Comments / annotation nodes**
-Free-text sticky notes on the canvas.
-A fourth node type with no handles, just a textarea.
-
 **Import from schema**
-Upload a JSON or CSV → auto-create DataFrameNode(s) with columns pre-filled.
-Useful for bootstrapping from an existing data model.
+Upload JSON or CSV → auto-create DataFrameNode(s) with columns pre-filled.
 
 **Validation layer**
-Highlight problems:
-- MergeNode with no key pairs (unintentional cross join)
-- Disconnected MergeNode inputs
-- Circular lineage paths
+Highlight problems: MergeNode with no key pairs, disconnected inputs, circular paths.
 
 **Multiple canvases / tabs**
-Multiple independent graphs in one session.
 Each tab saves to its own `localStorage` key.
 
-**GroupBy / Agg node**
-Same operator pattern as MergeNode.
-Select input columns, pick aggregation function (`sum`, `mean`, `count`, etc.),
-name output columns.
-
-**Filter node**
-Document `.query()` / `.loc[]` / `WHERE` operations.
-Single input, single output, a condition text field in the body.
-
 **Edge label tooltips**
-Show the source column name on hover over a lineage edge.
-ReactFlow supports custom edge components — add a `<EdgeLabelRenderer>` overlay.
+Show source column name on hover — use `<EdgeLabelRenderer>` overlay.
