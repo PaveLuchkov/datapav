@@ -1,8 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders learn react link', () => {
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
+test('renders toolbar buttons', () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  expect(screen.getByText('+ DataFrame')).toBeInTheDocument();
+  expect(screen.getByText('Save')).toBeInTheDocument();
+  expect(screen.getByText('Export PNG')).toBeInTheDocument();
 });
