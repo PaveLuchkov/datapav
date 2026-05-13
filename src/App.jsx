@@ -252,11 +252,25 @@ export default function App() {
     onAddFunctionOutput, onDeleteFunctionOutput, onFunctionOutputChange,
   };
 
-  const nodesWithCallbacks = useMemo(
-    () => attachCallbacks(nodes, callbacks.current),
+  const nodesWithCallbacks = useMemo(() => {
+    const enriched = nodes.map((n) => {
+      if (n.type !== 'mergeNode') return n;
+      const leftEdge  = edges.find((e) => e.target === n.id && e.targetHandle === 'left-in');
+      const rightEdge = edges.find((e) => e.target === n.id && e.targetHandle === 'right-in');
+      const leftNode  = leftEdge  ? nodes.find((nd) => nd.id === leftEdge.source)  : null;
+      const rightNode = rightEdge ? nodes.find((nd) => nd.id === rightEdge.source) : null;
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          leftDF:  leftNode  ? { id: leftNode.id,  label: leftNode.data.label,  attributes: leftNode.data.attributes  || [] } : null,
+          rightDF: rightNode ? { id: rightNode.id, label: rightNode.data.label, attributes: rightNode.data.attributes || [] } : null,
+        },
+      };
+    });
+    return attachCallbacks(enriched, callbacks.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [nodes]
-  );
+  }, [nodes, edges]);
 
   const nodeTypes = useMemo(() => ({ dataFrameNode: DataFrameNode, mergeNode: MergeNode, functionNode: FunctionNode }), []);
 
