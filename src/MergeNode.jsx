@@ -21,6 +21,7 @@ export default function MergeNode({ id, data }) {
 
   const stop = (e) => e.stopPropagation();
 
+  const safeKeyPairs = keyPairs || [];
   const leftCols  = leftDF?.attributes  || [];
   const rightCols = rightDF?.attributes || [];
 
@@ -110,11 +111,11 @@ export default function MergeNode({ id, data }) {
               Join keys
             </div>
 
-            {keyPairs.length === 0 && (
+            {safeKeyPairs.length === 0 && (
               <div className="text-xs italic px-1 mb-1" style={{ color: '#4c1d95' }}>No keys — cross join</div>
             )}
 
-            {keyPairs.map((pair, i) => (
+            {safeKeyPairs.map((pair, i) => (
               <div key={i} className="flex items-center gap-1 mb-1.5">
                 <select
                   value={pair.left}

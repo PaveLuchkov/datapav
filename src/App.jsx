@@ -170,7 +170,7 @@ export default function App() {
   const onAddKey = useCallback((nodeId) => {
     setNodes((nds) => nds.map((n) =>
       n.id === nodeId
-        ? { ...n, data: { ...n.data, keyPairs: [...n.data.keyPairs, { left: '', right: '' }] } }
+        ? { ...n, data: { ...n.data, keyPairs: [...(n.data.keyPairs || []), { left: '', right: '' }] } }
         : n
     ));
   }, [setNodes]);
@@ -178,7 +178,7 @@ export default function App() {
   const onRemoveKey = useCallback((nodeId, index) => {
     setNodes((nds) => nds.map((n) =>
       n.id === nodeId
-        ? { ...n, data: { ...n.data, keyPairs: n.data.keyPairs.filter((_, i) => i !== index) } }
+        ? { ...n, data: { ...n.data, keyPairs: (n.data.keyPairs || []).filter((_, i) => i !== index) } }
         : n
     ));
   }, [setNodes]);
@@ -186,7 +186,7 @@ export default function App() {
   const onUpdateKey = useCallback((nodeId, index, side, value) => {
     setNodes((nds) => nds.map((n) =>
       n.id === nodeId
-        ? { ...n, data: { ...n.data, keyPairs: n.data.keyPairs.map((p, i) => i === index ? { ...p, [side]: value } : p) } }
+        ? { ...n, data: { ...n.data, keyPairs: (n.data.keyPairs || []).map((p, i) => i === index ? { ...p, [side]: value } : p) } }
         : n
     ));
   }, [setNodes]);
