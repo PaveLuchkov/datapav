@@ -25,25 +25,41 @@ as PNG or save it for the next session.
 Running at **http://localhost:3001** (port 3000 was occupied).
 Start with: `PORT=3001 npm start` from `lineage-editor/`.
 
-### Git history
+### Git history (latest first)
 ```
+0a2cf8a  Add test suite: 22 tests across App, EditableText, ContextMenu, useLineagePersistence
+0332269  Add NodeErrorBoundary to isolate node render crashes
+283ac66  Refactor: extract ContextMenu component and useContextMenu hook
+999a438  Refactor: extract shared components, constants, and custom hooks
+9c10dbb  Fix node ID collisions across sessions by seeding idCounter from Date.now()
+f0c0dc8  Fix keyPairs not iterable crash when MergeNode data lacks keyPairs field
+7e9bece  Redesign MergeNode: two-panel layout with dropdown key selectors and auto output columns
+6af74e3  Add FunctionNode: two-panel black-box operator with grouped inputs and draggable outputs
 8394c54  Add MergeNode: visual join operator with type selector and key pairs editor
-c6a86de  Add drag-to-reorder attributes within a DataFrame node
-49a4e05  Add lineage editor: React Flow canvas with drag-to-derive attribute linking
-cfe7ead  Initialize project using Create React App
 ```
 
 ---
 
 ## File Map
 
-| File | Role |
-|---|---|
-| `src/App.jsx` | Root: state, all callbacks, ReactFlow wiring, context menu, toolbar actions |
-| `src/DataFrameNode.jsx` | Custom RF node: editable title, draggable/reorderable attribute rows, drop zones |
-| `src/MergeNode.jsx` | Custom RF node: join type selector, key pairs editor, L/R/out handles |
-| `src/Toolbar.jsx` | Top bar: DataFrame, Merge, Save, Load, Export PNG buttons |
-| `src/index.css` | Dark theme base + React Flow handle/edge overrides |
+```
+src/
+├── components/
+│   ├── ContextMenu.jsx       — Presentational context menu (pane / node variants)
+│   ├── DragContext.jsx       — React Context with useRef for drag state (no re-renders)
+│   ├── EditableText.jsx      — Shared inline-edit component (double-click to edit)
+│   └── NodeErrorBoundary.jsx — Class component; isolates node render crashes
+├── hooks/
+│   ├── useContextMenu.js     — menu state + onPaneContextMenu / onNodeContextMenu
+│   ├── useLineagePersistence.js — save / load localStorage, export PNG
+│   └── useLineageState.js    — all nodes/edges state, callbacks, graph operations
+├── constants.js              — DRAG_TYPE, STORAGE_KEY, COLORS, SIZES, JOIN_TYPES
+├── App.jsx                   — UI shell: ReactFlow wiring, toast, toolbar actions (145 lines)
+├── DataFrameNode.jsx         — Custom RF node: editable title, draggable attribute rows
+├── FunctionNode.jsx          — Custom RF node: input drop zone + draggable outputs
+├── MergeNode.jsx             — Custom RF node: join type, key pairs, output columns
+└── Toolbar.jsx               — Top bar buttons
+```
 
 ---
 
@@ -61,18 +77,24 @@ cfe7ead  Initialize project using Create React App
   - `df-in` (top-left) — receives connection from MergeNode output
   - `df-out` (top-right) — sends connection to MergeNode input
 
+### FunctionNode
+- Drop columns from any node onto the Inputs panel → creates input entry + edge
+- Add/delete/rename output columns
+- Outputs are draggable → can link to other nodes
+- Inputs grouped by source node label
+
 ### MergeNode
-- Created by: select exactly 2 DataFrames → toolbar **⋈ Merge** button (or right-click canvas → "⋈ Merge selected DFs")
+- Created by: select exactly 2 DataFrames → toolbar **⋈ Merge** button (or right-click canvas)
 - Auto-wires: left DF → L input, right DF → R input, out → new `result_df`
 - Join type toggle: `inner` / `left` / `right` / `outer` (color-coded)
-- Key pairs editor: add/remove `left_col = right_col` pairs, editable inline
-- Handles: `left-in` (top-left), `right-in` (bottom-left), `out` (right)
+- Key pairs editor: add/remove `left_col = right_col` pairs with dropdowns
+- Auto-shows output columns from both connected DFs (draggable to link downstream)
 
 ### Canvas
 - Pan + zoom (React Flow built-in)
 - Drag nodes from header area
-- Right-click canvas → "Add DataFrame here" (at cursor flow position)
-- Right-click node → "Delete DataFrame" / "Delete Merge"
+- Right-click canvas → "Add DataFrame here" / "ƒ Add Function here" (at cursor position)
+- Right-click node → "Delete …"
 - Select nodes + Delete key → removes nodes and their edges
 - Click edge + Delete → removes edge
 - `isValidConnection` enforces edge semantics:
@@ -82,48 +104,43 @@ cfe7ead  Initialize project using Create React App
 
 ### Persistence
 - Save / Load buttons → `localStorage` key `lineage-editor-state`
-- Saves full `{ nodes, edges }` — all node positions, types, data, all edges
+- Saves full `{ nodes, edges }` — all positions, types, data, edges
 - First load with no saved state → demo graph: `raw_orders`, `raw_customers`, `orders_enriched`
 
 ### Export
-- Export PNG → `html-to-image` renders the React Flow viewport, downloads `lineage.png`
+- Export PNG → `html-to-image` renders React Flow viewport, downloads `lineage.png`
 - Fits all nodes into frame before capture
 
 ---
 
-## Callback Architecture (important)
+## Architecture Notes
 
-All node mutation callbacks live in `App.jsx` and are injected into every node's
-`data` object via `attachCallbacks()` + a `callbacks.current` ref pattern.
+### Callback pattern
+All node mutation callbacks live in `useLineageState` and are injected into every
+node's `data` object via `attachCallbacks()` + a `callbacks.current` ref pattern.
 This avoids stale closures without recreating node objects on every render.
 
 ```
-callbacks.current = { onLabelChange, onAttributeChange, onAddAttribute,
-                      onDeleteAttribute, onReorderAttributes, onAttributeDrop,
-                      onJoinTypeChange, onAddKey, onRemoveKey, onUpdateKey }
-
-nodesWithCallbacks = useMemo(() => attachCallbacks(nodes, callbacks.current), [nodes])
+callbacks.current = { onLabelChange, onAttributeChange, ... }
+nodesWithCallbacks = useMemo(() => attachCallbacks(enriched, callbacks.current), [nodes, edges])
 ```
 
-Nodes call e.g. `data.onLabelChange(id, newLabel)` — never touch state directly.
-
----
-
-## Drag System
-
+### Drag system
 Two independent drag flows share the same HTML5 `draggable` API:
 
 | Drag type | Source | Destination | Effect |
 |---|---|---|---|
 | Reorder | attribute row | same node | reorder via `onReorderAttributes` |
-| Lineage | attribute row | different node | copy column + create edge |
+| Lineage | attribute row | different DataFrame | copy column + create edge |
+| Function input | attribute row | FunctionNode input panel | add input entry + edge |
+| Merge output | MergeNode output row | any node | create lineage edge |
 
-A module-level `activeDrag` variable (set on `dragStart`, cleared on `dragEnd`)
-lets `onDragOver` handlers know which type of drag is in progress without
-reading `dataTransfer` data (which is blocked during dragover for security).
+`DragContext` (React Context + `useRef`) stores the active drag payload.
+Read happens synchronously in event handlers — no re-renders triggered.
 
-Attribute rows use `onMouseDown: stopPropagation` to prevent React Flow from
-treating the row drag as a node move.
+### Error isolation
+Each node type is wrapped with `NodeErrorBoundary` via `withErrorBoundary()` in App.jsx.
+A crash in one node renders an inline error card, not a blank canvas.
 
 ---
 
@@ -135,9 +152,8 @@ no `tailwindcss` CLI binary in node_modules/.bin — `npx tailwindcss init -p`
 silently failed. Fixed by pinning `tailwindcss@3`.
 
 ### `App.js` shadowing `App.jsx`
-CRA scaffolded `App.js`. After creating `App.jsx`, the old file took priority
-and the default CRA page kept showing. Fixed by deleting `App.js`, `App.css`,
-and `logo.svg`.
+CRA scaffolded `App.js`. After creating `App.jsx`, the old file took priority.
+Fixed by deleting `App.js`, `App.css`, and `logo.svg`.
 
 ### Port conflict
 `npm start` hits port 3000 which was already occupied. Must use `PORT=3001 npm start`.
@@ -145,21 +161,87 @@ and `logo.svg`.
 ### Attribute drag conflicting with node drag
 First attempt used only `e.stopPropagation()` on `dragstart`. React Flow still
 captured the mousedown and moved the node. Fix: add `onMouseDown: e.stopPropagation()`
-on every draggable attribute row so React Flow never sees the mousedown.
+on every draggable attribute row.
 
 ### `dataTransfer.getData` blocked during dragover
 Tried to read payload during `onDragOver` to decide reorder vs. lineage.
 Browser blocks `.getData()` during drag (only available on `drop`).
-Fixed with the `activeDrag` module-level variable set at `dragstart`.
+Fixed with the `DragContext` ref set at `dragstart`.
 
 ---
 
-## Next Things To Build (not started)
+## Next Things To Build
 
-- **GroupBy / Agg node** — same operator pattern as MergeNode (select columns, aggregation functions)
-- **Filter node** — document `.query()` or `.loc[]` operations with condition text
-- **Edge label tooltips** — show source column name on lineage edges on hover
-- **MergeNode: show connected DF names** in L/R slots (requires reading edge graph at render time)
-- **Multi-key same-name shortcut** — if left_col == right_col, single input field with `on=` label
-- **JSON export** — export the graph as structured lineage JSON (not just PNG)
-- **Undo/Redo** — React Flow has `useUndoable` patterns; nothing in place now
+### High priority
+
+**Undo/Redo (`Ctrl+Z` / `Ctrl+Y`)**
+Deleting a node is permanent — biggest UX gap right now.
+Implementation: history stack of `{ nodes, edges }` snapshots (max 50) inside
+`useLineageState`. Push before every mutating operation, pop on undo.
+~50 lines, no new dependencies.
+
+**Column data types**
+Each attribute is currently just a name string. Add `type` field:
+`'string' | 'int' | 'date' | 'float' | 'bool'`.
+Show a small colored badge/icon next to the column name.
+Makes the graph actually informative, not just decorative.
+Change is localized to `DataFrameNode.jsx`, `makeAttr()`, and `EditableText` area.
+
+**Auto-layout (Dagre)**
+Large graphs become unmanageable when positioned manually.
+Library: `dagre` + `@dagrejs/graphlib` — ReactFlow has official examples for this.
+One "Auto-arrange" button in Toolbar that runs a top-down DAG layout.
+
+### Medium priority
+
+**Export to SQL**
+The graph already contains all structure needed to generate:
+```sql
+SELECT l.order_id, r.name, r.email
+FROM raw_orders l
+INNER JOIN raw_customers r ON l.customer_id = r.customer_id
+```
+Walk nodes/edges in `useLineagePersistence`, generate SQL string, copy to clipboard
+or download as `.sql`. Start with MergeNode → `JOIN`, DataFrameNode → `FROM`.
+
+**Copy / paste nodes (`Ctrl+C` / `Ctrl+D`)**
+Duplicating a DataFrame with the same columns is a frequent operation.
+Store copied node in a ref, paste offset by (+40, +40).
+
+**Search (`Cmd+K`)**
+Fuzzy search over node labels and column names.
+Click result → `reactFlowInstance.setCenter()` to that node.
+Needed once there are more than ~20 nodes.
+
+### Lower priority
+
+**Comments / annotation nodes**
+Free-text sticky notes on the canvas.
+A fourth node type with no handles, just a textarea.
+
+**Import from schema**
+Upload a JSON or CSV → auto-create DataFrameNode(s) with columns pre-filled.
+Useful for bootstrapping from an existing data model.
+
+**Validation layer**
+Highlight problems:
+- MergeNode with no key pairs (unintentional cross join)
+- Disconnected MergeNode inputs
+- Circular lineage paths
+
+**Multiple canvases / tabs**
+Multiple independent graphs in one session.
+Each tab saves to its own `localStorage` key.
+
+**GroupBy / Agg node**
+Same operator pattern as MergeNode.
+Select input columns, pick aggregation function (`sum`, `mean`, `count`, etc.),
+name output columns.
+
+**Filter node**
+Document `.query()` / `.loc[]` / `WHERE` operations.
+Single input, single output, a condition text field in the body.
+
+**Edge label tooltips**
+Show the source column name on hover over a lineage edge.
+ReactFlow supports custom edge components — add a `<EdgeLabelRenderer>` overlay.
