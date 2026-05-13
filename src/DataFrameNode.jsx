@@ -2,12 +2,13 @@ import React, { useState, useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
 import { useDrag } from './components/DragContext';
 import EditableText from './components/EditableText';
-import { DRAG_TYPE, COLORS, SIZES } from './constants';
+import { DRAG_TYPE, COLORS, SIZES, ATTR_TYPES, ATTR_TYPE_META } from './constants';
 
 export default function DataFrameNode({ id, data }) {
   const {
     label, attributes,
-    onLabelChange, onAttributeChange, onAddAttribute, onDeleteAttribute,
+    onLabelChange, onAttributeChange, onAttributeTypeChange,
+    onAddAttribute, onDeleteAttribute,
     onAttributeDrop, onReorderAttributes,
   } = data;
 
@@ -30,7 +31,7 @@ export default function DataFrameNode({ id, data }) {
 
   const onAttrDragStart = useCallback((e, attr) => {
     e.stopPropagation();
-    const drag = { sourceNodeId: id, attrId: attr.id, attrName: attr.name, sourceNodeLabel: label };
+    const drag = { sourceNodeId: id, attrId: attr.id, attrName: attr.name, attrType: attr.type, sourceNodeLabel: label };
     dragRef.current = drag;
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(drag));
@@ -176,6 +177,16 @@ export default function DataFrameNode({ id, data }) {
 
               <span className="text-blue-600 mr-1.5 text-xs opacity-0 group-hover:opacity-100 transition-opacity select-none">⠿</span>
 
+              <TypeBadge
+                type={attr.type || 'string'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const idx = ATTR_TYPES.indexOf(attr.type || 'string');
+                  const next = ATTR_TYPES[(idx + 1) % ATTR_TYPES.length];
+                  onAttributeTypeChange(id, attr.id, next);
+                }}
+              />
+
               <EditableText
                 value={attr.name}
                 onChange={(val) => onAttributeChange(id, attr.id, val)}
@@ -213,5 +224,27 @@ function InsertLine() {
     <div className="relative flex items-center px-3" style={{ height: 4 }}>
       <div className="w-full h-0.5 rounded-full bg-blue-400" />
     </div>
+  );
+}
+
+function TypeBadge({ type, onClick }) {
+  const meta = ATTR_TYPE_META[type] || ATTR_TYPE_META.string;
+  return (
+    <span
+      onClick={onClick}
+      onMouseDown={(e) => e.stopPropagation()}
+      title={`Type: ${type} — click to change`}
+      className="mr-1.5 rounded cursor-pointer select-none flex-shrink-0 transition-opacity"
+      style={{
+        fontSize: 9,
+        lineHeight: '14px',
+        padding: '0 4px',
+        color: meta.color,
+        background: meta.bg,
+        fontFamily: 'monospace',
+      }}
+    >
+      {meta.abbr}
+    </span>
   );
 }

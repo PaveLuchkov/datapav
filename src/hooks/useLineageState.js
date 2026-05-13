@@ -5,13 +5,13 @@ import { STORAGE_KEY } from '../constants';
 let idCounter = Date.now();
 const uid = () => `${++idCounter}`;
 
-const makeAttr = (name) => ({ id: uid(), name });
+const makeAttr = (name, type = 'string') => ({ id: uid(), name, type });
 
 const makeNode = (label, x, y, attributes) => ({
   id: uid(),
   type: 'dataFrameNode',
   position: { x, y },
-  data: { label, attributes: attributes.map(makeAttr) },
+  data: { label, attributes: attributes.map((a) => makeAttr(a)) },
 });
 
 const makeFunctionNode = (name, x, y) => ({
@@ -110,6 +110,15 @@ export function useLineageState() {
     ));
   }, [setNodes, pushHistory]);
 
+  const onAttributeTypeChange = useCallback((nodeId, attrId, type) => {
+    pushHistory();
+    setNodes((nds) => nds.map((n) =>
+      n.id === nodeId
+        ? { ...n, data: { ...n.data, attributes: n.data.attributes.map((a) => a.id === attrId ? { ...a, type } : a) } }
+        : n
+    ));
+  }, [setNodes, pushHistory]);
+
   const onAddAttribute = useCallback((nodeId) => {
     pushHistory();
     setNodes((nds) => nds.map((n) =>
@@ -142,9 +151,9 @@ export function useLineageState() {
     }));
   }, [setNodes, pushHistory]);
 
-  const onAttributeDrop = useCallback((targetNodeId, { sourceNodeId, attrId, attrName }) => {
+  const onAttributeDrop = useCallback((targetNodeId, { sourceNodeId, attrId, attrName, attrType }) => {
     pushHistory();
-    const newAttr = makeAttr(attrName);
+    const newAttr = makeAttr(attrName, attrType || 'string');
     setNodes((nds) => nds.map((n) =>
       n.id === targetNodeId
         ? { ...n, data: { ...n.data, attributes: [...n.data.attributes, newAttr] } }
@@ -251,8 +260,8 @@ export function useLineageState() {
   }, [setNodes, pushHistory]);
 
   callbacks.current = {
-    onLabelChange, onAttributeChange, onAddAttribute, onDeleteAttribute,
-    onReorderAttributes, onAttributeDrop,
+    onLabelChange, onAttributeChange, onAttributeTypeChange,
+    onAddAttribute, onDeleteAttribute, onReorderAttributes, onAttributeDrop,
     onJoinTypeChange, onAddKey, onRemoveKey, onUpdateKey,
     onFunctionInputDrop, onDeleteFunctionInput,
     onAddFunctionOutput, onDeleteFunctionOutput, onFunctionOutputChange,
