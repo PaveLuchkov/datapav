@@ -1,17 +1,7 @@
 import React, { useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
-import { setActiveDrag } from './dragState';
-
-const DRAG_TYPE = 'application/lineage-attr';
-
-const JOIN_TYPES = ['inner', 'left', 'right', 'outer'];
-
-const JOIN_ACTIVE = {
-  inner: { bg: '#1d4ed8', text: '#fff' },
-  left:  { bg: '#6d28d9', text: '#fff' },
-  right: { bg: '#be185d', text: '#fff' },
-  outer: { bg: '#b45309', text: '#fff' },
-};
+import { useDrag } from './components/DragContext';
+import { DRAG_TYPE, JOIN_TYPES, JOIN_ACTIVE_STYLES, COLORS, SIZES } from './constants';
 
 export default function MergeNode({ id, data }) {
   const {
@@ -19,6 +9,7 @@ export default function MergeNode({ id, data }) {
     onJoinTypeChange, onAddKey, onRemoveKey, onUpdateKey,
   } = data;
 
+  const dragRef = useDrag();
   const stop = (e) => e.stopPropagation();
 
   const safeKeyPairs = keyPairs || [];
@@ -29,38 +20,38 @@ export default function MergeNode({ id, data }) {
     e.stopPropagation();
     const attrId = `mout-${side}-${attr.id}`;
     const drag = { sourceNodeId: id, attrId, attrName: attr.name, sourceNodeLabel: '⋈ merge' };
-    setActiveDrag(drag);
+    dragRef.current = drag;
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(drag));
-  }, [id]);
+  }, [id, dragRef]);
 
-  const onOutputDragEnd = useCallback(() => setActiveDrag(null), []);
+  const onOutputDragEnd = useCallback(() => { dragRef.current = null; }, [dragRef]);
 
   return (
     <div
       className="rounded-lg overflow-visible shadow-2xl"
-      style={{ background: '#160d2e', border: '1px solid #4c1d95', minWidth: 360 }}
+      style={{ background: COLORS.merge.bg, border: `1px solid ${COLORS.merge.border}`, minWidth: SIZES.mergeMinWidth }}
       onContextMenu={stop}
     >
       {/* L / R target handles on left edge */}
       <Handle
         type="target" id="left-in" position={Position.Left}
-        style={{ top: '30%', background: '#7c3aed', border: '2px solid #2e1065', width: 10, height: 10 }}
+        style={{ top: '30%', background: COLORS.merge.handleLeft, border: `2px solid ${COLORS.merge.handleBorder}`, width: 10, height: 10 }}
       />
       <Handle
         type="target" id="right-in" position={Position.Left}
-        style={{ top: '70%', background: '#9333ea', border: '2px solid #2e1065', width: 10, height: 10 }}
+        style={{ top: '70%', background: COLORS.merge.handleRight, border: `2px solid ${COLORS.merge.handleBorder}`, width: 10, height: 10 }}
       />
       {/* out handle at header level — for DF-level wiring (auto-merge) */}
       <Handle
         type="source" id="out" position={Position.Right}
-        style={{ top: 14, background: '#7c3aed', border: '2px solid #2e1065', width: 8, height: 8, borderRadius: 2 }}
+        style={{ top: 14, background: COLORS.merge.handleLeft, border: `2px solid ${COLORS.merge.handleBorder}`, width: 8, height: 8, borderRadius: 2 }}
       />
 
       {/* Header */}
       <div
         className="px-3 py-2 border-b border-purple-900 flex items-center justify-between cursor-grab active:cursor-grabbing"
-        style={{ background: '#2e1065' }}
+        style={{ background: COLORS.merge.header }}
       >
         <span className="text-purple-200 font-bold text-sm tracking-widest select-none">⋈ MERGE</span>
         <div className="flex gap-0.5">
@@ -73,7 +64,7 @@ export default function MergeNode({ id, data }) {
                 onMouseDown={stop}
                 className="px-1.5 py-0.5 text-xs rounded font-medium transition-colors"
                 style={active
-                  ? { background: JOIN_ACTIVE[jt].bg, color: JOIN_ACTIVE[jt].text }
+                  ? JOIN_ACTIVE_STYLES[jt]
                   : { color: '#a78bfa' }}
               >
                 {jt}
@@ -84,7 +75,7 @@ export default function MergeNode({ id, data }) {
       </div>
 
       {/* Body */}
-      <div className="flex" style={{ minHeight: 80 }}>
+      <div className="flex" style={{ minHeight: SIZES.mergeBodyMinHeight }}>
 
         {/* LEFT: DF labels + join keys */}
         <div className="py-2 border-r border-purple-900/50" style={{ flex: '1 1 0', minWidth: 0 }}>
@@ -210,7 +201,7 @@ export default function MergeNode({ id, data }) {
 }
 
 function OutputRow({ side, attr, onDragStart, onDragEnd }) {
-  const sideColor = side === 'L' ? '#7c3aed' : '#9333ea';
+  const sideColor = side === 'L' ? COLORS.merge.handleLeft : COLORS.merge.handleRight;
 
   return (
     <div
@@ -219,7 +210,7 @@ function OutputRow({ side, attr, onDragStart, onDragEnd }) {
       onDragStart={(e) => onDragStart(e, side, attr)}
       onDragEnd={onDragEnd}
       className="relative flex items-center group hover:bg-purple-900/30 transition-colors cursor-grab active:cursor-grabbing"
-      style={{ paddingLeft: 8, paddingRight: 22, minHeight: 24 }}
+      style={{ paddingLeft: 8, paddingRight: 22, minHeight: SIZES.fnRowMinHeight }}
     >
       <span
         className="text-xs font-bold mr-1.5 flex-shrink-0 select-none"
@@ -235,7 +226,7 @@ function OutputRow({ side, attr, onDragStart, onDragEnd }) {
         style={{
           right: -5, top: '50%', transform: 'translateY(-50%)',
           position: 'absolute', background: sideColor,
-          border: '2px solid #160d2e', width: 8, height: 8,
+          border: `2px solid ${COLORS.merge.bg}`, width: 8, height: 8,
         }}
       />
     </div>

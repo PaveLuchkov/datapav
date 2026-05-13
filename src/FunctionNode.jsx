@@ -1,58 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Handle, Position } from 'reactflow';
-import { activeDrag, setActiveDrag } from './dragState';
-
-const DRAG_TYPE = 'application/lineage-attr';
-
-function EditableText({ value, onChange, className, placeholder }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-
-  const startEdit = (e) => {
-    e.stopPropagation();
-    setDraft(value);
-    setEditing(true);
-  };
-
-  const commit = () => {
-    setEditing(false);
-    const trimmed = draft.trim();
-    if (trimmed && trimmed !== value) onChange(trimmed);
-    else setDraft(value);
-  };
-
-  const onKeyDown = (e) => {
-    if (e.key === 'Enter') commit();
-    if (e.key === 'Escape') { setDraft(value); setEditing(false); }
-    e.stopPropagation();
-  };
-
-  if (editing) {
-    return (
-      <input
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={onKeyDown}
-        onClick={(e) => e.stopPropagation()}
-        placeholder={placeholder}
-        className={`bg-transparent border-b border-emerald-400 outline-none ${className}`}
-        style={{ minWidth: 60, width: Math.max(draft.length * 8, 60) }}
-        autoFocus
-      />
-    );
-  }
-
-  return (
-    <span
-      onDoubleClick={startEdit}
-      className={`cursor-text select-none ${className}`}
-      title="Double-click to edit"
-    >
-      {value || <span className="opacity-40">{placeholder}</span>}
-    </span>
-  );
-}
+import { useDrag } from './components/DragContext';
+import EditableText from './components/EditableText';
+import { DRAG_TYPE, COLORS, SIZES } from './constants';
 
 export default function FunctionNode({ id, data }) {
   const {
@@ -65,6 +15,7 @@ export default function FunctionNode({ id, data }) {
     onFunctionOutputChange,
   } = data;
 
+  const dragRef = useDrag();
   const [inputsDragOver, setInputsDragOver] = useState(false);
 
   const groupedInputs = useMemo(() => {
@@ -81,12 +32,12 @@ export default function FunctionNode({ id, data }) {
 
   const onInputPanelDragOver = useCallback((e) => {
     if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
-    if (activeDrag?.sourceNodeId === id) return;
+    if (dragRef.current?.sourceNodeId === id) return;
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'copy';
     setInputsDragOver(true);
-  }, [id]);
+  }, [id, dragRef]);
 
   const onInputPanelDragLeave = useCallback((e) => {
     if (!e.currentTarget.contains(e.relatedTarget)) setInputsDragOver(false);
@@ -108,14 +59,14 @@ export default function FunctionNode({ id, data }) {
   const onOutputDragStart = useCallback((e, output) => {
     e.stopPropagation();
     const drag = { sourceNodeId: id, attrId: output.id, attrName: output.name, sourceNodeLabel: label };
-    setActiveDrag(drag);
+    dragRef.current = drag;
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(drag));
-  }, [id, label]);
+  }, [id, label, dragRef]);
 
   const onOutputDragEnd = useCallback(() => {
-    setActiveDrag(null);
-  }, []);
+    dragRef.current = null;
+  }, [dragRef]);
 
   const stop = (e) => e.stopPropagation();
 
@@ -123,16 +74,16 @@ export default function FunctionNode({ id, data }) {
     <div
       className="rounded-lg overflow-visible shadow-xl"
       style={{
-        background: '#052e16',
-        border: '1px solid #166534',
-        minWidth: 360,
+        background: COLORS.function.bg,
+        border: `1px solid ${COLORS.function.border}`,
+        minWidth: SIZES.functionMinWidth,
       }}
       onContextMenu={stop}
     >
       {/* Header */}
       <div
         className="px-3 py-2 border-b border-emerald-900 flex items-center gap-2 cursor-grab active:cursor-grabbing"
-        style={{ background: '#14532d' }}
+        style={{ background: COLORS.function.header }}
       >
         <span className="text-emerald-400 font-mono text-sm select-none font-bold">ƒ</span>
         <EditableText
@@ -140,11 +91,12 @@ export default function FunctionNode({ id, data }) {
           onChange={(val) => onLabelChange(id, val)}
           className="text-white font-semibold text-sm flex-1"
           placeholder="function_name"
+          borderColorClass="border-emerald-400"
         />
       </div>
 
       {/* Body */}
-      <div className="flex" style={{ minHeight: 72 }}>
+      <div className="flex" style={{ minHeight: SIZES.fnBodyMinHeight }}>
 
         {/* LEFT: Inputs */}
         <div
@@ -153,7 +105,7 @@ export default function FunctionNode({ id, data }) {
             flex: '1 1 0',
             borderRight: '1px solid rgba(22,101,52,0.5)',
             background: inputsDragOver ? 'rgba(16,185,129,0.08)' : undefined,
-            outline: inputsDragOver ? '2px dashed #10b981' : 'none',
+            outline: inputsDragOver ? `2px dashed ${COLORS.function.handleFill}` : 'none',
             outlineOffset: -2,
           }}
           onDragOver={onInputPanelDragOver}
@@ -165,7 +117,7 @@ export default function FunctionNode({ id, data }) {
           </div>
 
           {inputs.length === 0 && (
-            <div className="px-3 py-2 text-xs italic" style={{ color: '#166534' }}>
+            <div className="px-3 py-2 text-xs italic" style={{ color: COLORS.function.border }}>
               {inputsDragOver ? 'Drop to add input' : 'Drop columns here'}
             </div>
           )}
@@ -188,7 +140,7 @@ export default function FunctionNode({ id, data }) {
                 <div
                   key={inp.id}
                   className="relative flex items-center group hover:bg-emerald-900/30 transition-colors"
-                  style={{ paddingLeft: 22, paddingRight: 8, minHeight: 24 }}
+                  style={{ paddingLeft: 22, paddingRight: 8, minHeight: SIZES.fnRowMinHeight }}
                 >
                   <Handle
                     type="target"
@@ -196,8 +148,8 @@ export default function FunctionNode({ id, data }) {
                     id={`${inp.id}-target`}
                     style={{
                       left: -5, top: '50%', transform: 'translateY(-50%)',
-                      position: 'absolute', background: '#10b981',
-                      border: '2px solid #052e16', width: 8, height: 8,
+                      position: 'absolute', background: COLORS.function.handleFill,
+                      border: `2px solid ${COLORS.function.handleBorder}`, width: 8, height: 8,
                     }}
                   />
                   <span className="text-emerald-200 text-xs flex-1 truncate">{inp.attrName}</span>
@@ -225,7 +177,7 @@ export default function FunctionNode({ id, data }) {
           </div>
 
           {outputs.length === 0 && (
-            <div className="px-3 py-2 text-xs italic" style={{ color: '#166534' }}>No outputs yet</div>
+            <div className="px-3 py-2 text-xs italic" style={{ color: COLORS.function.border }}>No outputs yet</div>
           )}
 
           {outputs.map((output) => (
@@ -236,13 +188,14 @@ export default function FunctionNode({ id, data }) {
               onDragStart={(e) => onOutputDragStart(e, output)}
               onDragEnd={onOutputDragEnd}
               className="relative flex items-center group hover:bg-emerald-900/30 transition-colors cursor-grab active:cursor-grabbing"
-              style={{ paddingLeft: 8, paddingRight: 22, minHeight: 24 }}
+              style={{ paddingLeft: 8, paddingRight: 22, minHeight: SIZES.fnRowMinHeight }}
             >
               <EditableText
                 value={output.name}
                 onChange={(val) => onFunctionOutputChange(id, output.id, val)}
                 className="text-emerald-100 text-xs flex-1"
                 placeholder="output_col"
+                borderColorClass="border-emerald-400"
               />
               <button
                 onClick={(e) => { stop(e); onDeleteFunctionOutput(id, output.id); }}
@@ -257,8 +210,8 @@ export default function FunctionNode({ id, data }) {
                 id={`${output.id}-source`}
                 style={{
                   right: -5, top: '50%', transform: 'translateY(-50%)',
-                  position: 'absolute', background: '#10b981',
-                  border: '2px solid #052e16', width: 8, height: 8,
+                  position: 'absolute', background: COLORS.function.handleFill,
+                  border: `2px solid ${COLORS.function.handleBorder}`, width: 8, height: 8,
                 }}
               />
             </div>
