@@ -6,8 +6,10 @@ import Toolbar from './Toolbar';
 import { DragProvider } from './components/DragContext';
 import ContextMenu from './components/ContextMenu';
 import SearchModal from './components/SearchModal';
+import TabBar from './components/TabBar';
 import { useLineageState } from './hooks/useLineageState';
 import { useLineagePersistence } from './hooks/useLineagePersistence';
+import { useCanvasTabs } from './hooks/useCanvasTabs';
 import { useContextMenu } from './hooks/useContextMenu';
 import { useAutoLayout } from './hooks/useAutoLayout';
 import { nodeTypes, isValidConnection, getMinimapColor, ADDABLE_NODES } from './nodes/registry';
@@ -37,6 +39,10 @@ export default function App() {
 
   const { saveState, loadState, exportPng, saveToFile, loadFromFile } = useLineagePersistence({
     nodes, edges, restoreState, showToast,
+  });
+
+  const { tabs, activeTabId, switchTab, addTab, closeTab, renameTab } = useCanvasTabs({
+    nodes, edges, restoreState,
   });
 
   // ── Context menu ───────────────────────────────────────────────────────
@@ -99,8 +105,8 @@ export default function App() {
 
   return (
     <DragProvider>
-      <div className="w-screen h-screen bg-slate-900 relative" onKeyDown={handleKeyDown} tabIndex={0}>
-        <div ref={reactFlowWrapper} className="w-full h-full">
+      <div className="w-screen h-screen bg-slate-900 flex flex-col" onKeyDown={handleKeyDown} tabIndex={0}>
+        <div ref={reactFlowWrapper} className="flex-1 min-h-0 relative">
           <ReactFlow
             nodes={nodesWithCallbacks}
             edges={edges}
@@ -166,6 +172,15 @@ export default function App() {
             onClose={() => setSearchOpen(false)}
           />
         )}
+
+        <TabBar
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onSwitch={switchTab}
+          onAdd={addTab}
+          onClose={closeTab}
+          onRename={renameTab}
+        />
       </div>
     </DragProvider>
   );

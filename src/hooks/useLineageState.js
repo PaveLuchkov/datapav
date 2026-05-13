@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNodesState, useEdgesState, addEdge, MarkerType } from 'reactflow';
-import { STORAGE_KEY } from '../constants';
+import { getActiveCanvasKey } from '../constants';
 import { uid } from '../utils/uid';
 import { NODE_REGISTRY } from '../nodes/registry';
 import { useDataFrameCallbacks } from '../nodes/dataframe/callbacks';
@@ -110,7 +110,7 @@ export function useLineageState() {
   const [initialized, setInitialized] = useState(false);
   if (!initialized) {
     setInitialized(true);
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(getActiveCanvasKey());
     if (saved) {
       try {
         const { nodes: sn, edges: se } = JSON.parse(saved);

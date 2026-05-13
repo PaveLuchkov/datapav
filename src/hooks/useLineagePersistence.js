@@ -1,16 +1,16 @@
 import { useCallback } from 'react';
 import { getNodesBounds, getViewportForBounds } from 'reactflow';
 import { toPng } from 'html-to-image';
-import { STORAGE_KEY } from '../constants';
+import { getActiveCanvasKey } from '../constants';
 
 export function useLineagePersistence({ nodes, edges, restoreState, showToast }) {
   const saveState = useCallback(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ nodes, edges }));
+    localStorage.setItem(getActiveCanvasKey(), JSON.stringify({ nodes, edges }));
     showToast('Saved!');
   }, [nodes, edges, showToast]);
 
   const loadState = useCallback(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(getActiveCanvasKey());
     if (!saved) { showToast('Nothing saved yet'); return; }
     try {
       const { nodes: sn, edges: se } = JSON.parse(saved);

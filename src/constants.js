@@ -1,6 +1,17 @@
 export const DRAG_TYPE  = 'application/lineage-attr';
 export const STORAGE_KEY = 'lineage-editor-state';
 
+export const TABS_KEY       = 'lineage-editor-tabs';
+export const ACTIVE_TAB_KEY = 'lineage-editor-active';
+export const canvasKey      = (id) => `lineage-editor-canvas-${id}`;
+export const getActiveCanvasKey = () => {
+  try {
+    const id = localStorage.getItem(ACTIVE_TAB_KEY);
+    if (id) return canvasKey(id);
+  } catch {}
+  return STORAGE_KEY;
+};
+
 export const JOIN_TYPES = ['inner', 'left', 'right', 'outer'];
 
 export const JOIN_ACTIVE_STYLES = {
