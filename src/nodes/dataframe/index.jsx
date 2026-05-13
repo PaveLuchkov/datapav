@@ -1,8 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
-import { useDrag } from './components/DragContext';
-import EditableText from './components/EditableText';
-import { DRAG_TYPE, COLORS, SIZES, ATTR_TYPES, ATTR_TYPE_META } from './constants';
+import { useDrag } from '../../components/DragContext';
+import EditableText from '../../components/EditableText';
+import { DRAG_TYPE, ATTR_TYPES, ATTR_TYPE_META } from '../../constants';
+import config from './config';
+
+const { colors } = config;
+const ATTR_ROW_HEIGHT = 28;
 
 export default function DataFrameNode({ id, data }) {
   const {
@@ -14,7 +18,6 @@ export default function DataFrameNode({ id, data }) {
 
   const dragRef = useDrag();
   const [isDragOver, setIsDragOver] = useState(false);
-  // insertIndex: where the reorder line shows (0 = before first, attrs.length = after last)
   const [insertIndex, setInsertIndex] = useState(null);
 
   const handleAddAttribute = useCallback((e) => {
@@ -26,8 +29,6 @@ export default function DataFrameNode({ id, data }) {
     e.stopPropagation();
     onDeleteAttribute(id, attrId);
   }, [id, onDeleteAttribute]);
-
-  // ── Attribute row events ────────────────────────────────────────────────
 
   const onAttrDragStart = useCallback((e, attr) => {
     e.stopPropagation();
@@ -44,11 +45,9 @@ export default function DataFrameNode({ id, data }) {
 
   const onAttrDragOver = useCallback((e, index) => {
     if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
-    if (dragRef.current?.sourceNodeId !== id) return; // cross-node drag — let it bubble up to node container
-
+    if (dragRef.current?.sourceNodeId !== id) return;
     e.preventDefault();
-    e.stopPropagation(); // prevent node container from showing "Drop to add & link"
-
+    e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
     const isBefore = e.clientY < rect.top + rect.height / 2;
     setInsertIndex(isBefore ? index : index + 1);
@@ -56,26 +55,21 @@ export default function DataFrameNode({ id, data }) {
 
   const onAttrDrop = useCallback((e) => {
     if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
-    if (dragRef.current?.sourceNodeId !== id) return; // let node container handle cross-node
-
+    if (dragRef.current?.sourceNodeId !== id) return;
     e.preventDefault();
     e.stopPropagation();
-
     const payload = JSON.parse(e.dataTransfer.getData(DRAG_TYPE));
     const fromIndex = attributes.findIndex((a) => a.id === payload.attrId);
     const to = insertIndex ?? attributes.length;
-
     if (fromIndex !== -1 && to !== fromIndex && to !== fromIndex + 1) {
       onReorderAttributes(id, fromIndex, to);
     }
     setInsertIndex(null);
   }, [id, attributes, insertIndex, onReorderAttributes, dragRef]);
 
-  // ── Node container events (cross-node drops only) ───────────────────────
-
   const onNodeDragOver = useCallback((e) => {
     if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
-    if (dragRef.current?.sourceNodeId === id) return; // same-node handled by rows above
+    if (dragRef.current?.sourceNodeId === id) return;
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'copy';
@@ -101,9 +95,9 @@ export default function DataFrameNode({ id, data }) {
     <div
       className="rounded-lg overflow-visible shadow-xl transition-all"
       style={{
-        background: COLORS.dataframe.bg,
-        minWidth: SIZES.dataframeMinWidth,
-        border: isDragOver ? '2px solid #60a5fa' : `1px solid ${COLORS.dataframe.border}`,
+        background: colors.bg,
+        minWidth: 200,
+        border: isDragOver ? '2px solid #60a5fa' : `1px solid ${colors.border}`,
         boxShadow: isDragOver ? '0 0 0 3px rgba(96,165,250,0.25)' : undefined,
       }}
       onContextMenu={(e) => e.stopPropagation()}
@@ -111,20 +105,18 @@ export default function DataFrameNode({ id, data }) {
       onDragLeave={onNodeDragLeave}
       onDrop={onNodeDrop}
     >
-      {/* Node-level handles for Merge connections (teal squares, top corners) */}
       <Handle
         type="target" id="df-in" position={Position.Left}
-        style={{ top: 14, background: COLORS.dataframe.handleFill, border: `2px solid ${COLORS.dataframe.handleBorder}`, width: 8, height: 8, borderRadius: 2 }}
+        style={{ top: 14, background: colors.handleFill, border: `2px solid ${colors.handleBorder}`, width: 8, height: 8, borderRadius: 2 }}
       />
       <Handle
         type="source" id="df-out" position={Position.Right}
-        style={{ top: 14, background: COLORS.dataframe.handleFill, border: `2px solid ${COLORS.dataframe.handleBorder}`, width: 8, height: 8, borderRadius: 2 }}
+        style={{ top: 14, background: colors.handleFill, border: `2px solid ${colors.handleBorder}`, width: 8, height: 8, borderRadius: 2 }}
       />
 
-      {/* Header */}
       <div
         className="px-3 py-2 border-b border-blue-900 flex items-center justify-between cursor-grab active:cursor-grabbing"
-        style={{ background: COLORS.dataframe.header }}
+        style={{ background: colors.header }}
       >
         <EditableText
           value={label}
@@ -148,7 +140,6 @@ export default function DataFrameNode({ id, data }) {
         </div>
       )}
 
-      {/* Attributes */}
       <div className="py-1">
         {attributes.length === 0 && !isDragOver && (
           <div className="px-3 py-1 text-blue-400 text-xs opacity-50 italic">No columns</div>
@@ -166,17 +157,13 @@ export default function DataFrameNode({ id, data }) {
               onDragOver={(e) => onAttrDragOver(e, index)}
               onDrop={onAttrDrop}
               className="relative flex items-center group hover:bg-blue-900/30 transition-colors cursor-grab active:cursor-grabbing"
-              style={{ paddingLeft: 14, paddingRight: 14, minHeight: SIZES.attrRowMinHeight }}
+              style={{ paddingLeft: 14, paddingRight: 14, minHeight: ATTR_ROW_HEIGHT }}
             >
               <Handle
-                type="target"
-                position={Position.Left}
-                id={`${attr.id}-target`}
+                type="target" position={Position.Left} id={`${attr.id}-target`}
                 style={{ left: -5, top: '50%', transform: 'translateY(-50%)', position: 'absolute' }}
               />
-
               <span className="text-blue-600 mr-1.5 text-xs opacity-0 group-hover:opacity-100 transition-opacity select-none">⠿</span>
-
               <TypeBadge
                 type={attr.type || 'string'}
                 onClick={(e) => {
@@ -186,14 +173,12 @@ export default function DataFrameNode({ id, data }) {
                   onAttributeTypeChange(id, attr.id, next);
                 }}
               />
-
               <EditableText
                 value={attr.name}
                 onChange={(val) => onAttributeChange(id, attr.id, val)}
                 className="text-blue-100 text-xs flex-1"
                 placeholder="column"
               />
-
               <button
                 onClick={(e) => handleDeleteAttribute(e, attr.id)}
                 onMouseDown={(e) => e.stopPropagation()}
@@ -202,15 +187,11 @@ export default function DataFrameNode({ id, data }) {
               >
                 ×
               </button>
-
               <Handle
-                type="source"
-                position={Position.Right}
-                id={`${attr.id}-source`}
+                type="source" position={Position.Right} id={`${attr.id}-source`}
                 style={{ right: -5, top: '50%', transform: 'translateY(-50%)', position: 'absolute' }}
               />
             </div>
-
             {insertIndex === index + 1 && <InsertLine />}
           </React.Fragment>
         ))}

@@ -1,55 +1,53 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNodesState, useEdgesState, addEdge, MarkerType } from 'reactflow';
 import { STORAGE_KEY } from '../constants';
+import { uid } from '../utils/uid';
+import { NODE_REGISTRY } from '../nodes/registry';
+import { useDataFrameCallbacks } from '../nodes/dataframe/callbacks';
+import { useMergeCallbacks }     from '../nodes/merge/callbacks';
+import { useFunctionCallbacks }  from '../nodes/function/callbacks';
+import { useFilterCallbacks }    from '../nodes/filter/callbacks';
+import { useGroupByCallbacks }   from '../nodes/groupby/callbacks';
+import { useCommentCallbacks }   from '../nodes/comment/callbacks';
+import dataframeConfig from '../nodes/dataframe/config';
+import mergeConfig     from '../nodes/merge/config';
 
-let idCounter = Date.now();
-const uid = () => `${++idCounter}`;
+// ── Demo state ─────────────────────────────────────────────────────────────
 
 const makeAttr = (name, type = 'string') => ({ id: uid(), name, type });
 
-const makeNode = (label, x, y, attributes) => ({
-  id: uid(),
-  type: 'dataFrameNode',
-  position: { x, y },
-  data: { label, attributes: attributes.map((a) => makeAttr(a)) },
-});
+const DEMO_NODES = [
+  dataframeConfig.make(80,  80,  { label: 'raw_orders',      attributes: ['order_id','customer_id','amount','created_at'].map((n) => makeAttr(n)) }),
+  dataframeConfig.make(80,  300, { label: 'raw_customers',   attributes: ['customer_id','name','email','country'].map((n) => makeAttr(n)) }),
+  dataframeConfig.make(500, 180, { label: 'orders_enriched', attributes: ['order_id','customer_name','email','amount','country'].map((n) => makeAttr(n)) }),
+];
+const DEMO_EDGES = [];
 
-const makeFunctionNode = (name, x, y) => ({
-  id: uid(),
-  type: 'functionNode',
-  position: { x, y },
-  data: { label: name, inputs: [], outputs: [] },
-});
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function attachCallbacks(nodes, cbs) {
+  return nodes.map((n) => ({ ...n, data: { ...n.data, ...cbs } }));
+}
 
 const makeMergeEdge = (source, sourceHandle, target, targetHandle) => ({
   id: `em-${uid()}`,
-  source, sourceHandle,
-  target, targetHandle,
+  source, sourceHandle, target, targetHandle,
   type: 'smoothstep',
   style: { stroke: '#7c3aed', strokeWidth: 2 },
   markerEnd: { type: MarkerType.ArrowClosed, color: '#7c3aed' },
 });
 
-const DEMO_NODES = [
-  makeNode('raw_orders',      80,  80, ['order_id', 'customer_id', 'amount', 'created_at']),
-  makeNode('raw_customers',   80, 300, ['customer_id', 'name', 'email', 'country']),
-  makeNode('orders_enriched', 500, 180, ['order_id', 'customer_name', 'email', 'amount', 'country']),
-];
-const DEMO_EDGES = [];
-
-function attachCallbacks(nodes, cbs) {
-  return nodes.map((n) => ({ ...n, data: { ...n.data, ...cbs } }));
-}
+// ── Hook ───────────────────────────────────────────────────────────────────
 
 export function useLineageState() {
   const callbacks = useRef({});
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  // ── History ────────────────────────────────────────────────────────────
+  // ── History ──────────────────────────────────────────────────────────────
+
   const history = useRef([]);
   const future  = useRef([]);
-  // Always-current refs so snapshots can be taken synchronously
   const nodesRef = useRef([]);
   const edgesRef = useRef([]);
   nodesRef.current = nodes;
@@ -78,7 +76,7 @@ export function useLineageState() {
     setEdges(next.edges);
   }, [setNodes, setEdges]);
 
-  // ── Init ───────────────────────────────────────────────────────────────
+  // ── Init ─────────────────────────────────────────────────────────────────
 
   const [initialized, setInitialized] = useState(false);
   if (!initialized) {
@@ -94,196 +92,36 @@ export function useLineageState() {
     }
   }
 
-  // ── DataFrame callbacks ────────────────────────────────────────────────
+  // ── Per-type callbacks ────────────────────────────────────────────────────
 
-  const onLabelChange = useCallback((nodeId, label) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, label } } : n));
-  }, [setNodes, pushHistory]);
+  const dfCbs  = useDataFrameCallbacks(setNodes, setEdges, pushHistory);
+  const mgCbs  = useMergeCallbacks(setNodes, pushHistory);
+  const fnCbs  = useFunctionCallbacks(setNodes, setEdges, pushHistory);
+  const ftCbs  = useFilterCallbacks(setNodes, pushHistory);
+  const gbCbs  = useGroupByCallbacks(setNodes, setEdges, pushHistory);
+  const cmCbs  = useCommentCallbacks(setNodes, pushHistory);
 
-  const onAttributeChange = useCallback((nodeId, attrId, name) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) =>
-      n.id === nodeId
-        ? { ...n, data: { ...n.data, attributes: n.data.attributes.map((a) => a.id === attrId ? { ...a, name } : a) } }
-        : n
-    ));
-  }, [setNodes, pushHistory]);
+  callbacks.current = { ...dfCbs, ...mgCbs, ...fnCbs, ...ftCbs, ...gbCbs, ...cmCbs };
 
-  const onAttributeTypeChange = useCallback((nodeId, attrId, type) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) =>
-      n.id === nodeId
-        ? { ...n, data: { ...n.data, attributes: n.data.attributes.map((a) => a.id === attrId ? { ...a, type } : a) } }
-        : n
-    ));
-  }, [setNodes, pushHistory]);
-
-  const onAddAttribute = useCallback((nodeId) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) =>
-      n.id === nodeId
-        ? { ...n, data: { ...n.data, attributes: [...n.data.attributes, makeAttr('column')] } }
-        : n
-    ));
-  }, [setNodes, pushHistory]);
-
-  const onDeleteAttribute = useCallback((nodeId, attrId) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) =>
-      n.id === nodeId
-        ? { ...n, data: { ...n.data, attributes: n.data.attributes.filter((a) => a.id !== attrId) } }
-        : n
-    ));
-    setEdges((eds) =>
-      eds.filter((e) => !e.sourceHandle?.startsWith(attrId) && !e.targetHandle?.startsWith(attrId))
-    );
-  }, [setNodes, setEdges, pushHistory]);
-
-  const onReorderAttributes = useCallback((nodeId, fromIndex, toIndex) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) => {
-      if (n.id !== nodeId) return n;
-      const attrs = [...n.data.attributes];
-      const [moved] = attrs.splice(fromIndex, 1);
-      attrs.splice(toIndex > fromIndex ? toIndex - 1 : toIndex, 0, moved);
-      return { ...n, data: { ...n.data, attributes: attrs } };
-    }));
-  }, [setNodes, pushHistory]);
-
-  const onAttributeDrop = useCallback((targetNodeId, { sourceNodeId, attrId, attrName, attrType }) => {
-    pushHistory();
-    const newAttr = makeAttr(attrName, attrType || 'string');
-    setNodes((nds) => nds.map((n) =>
-      n.id === targetNodeId
-        ? { ...n, data: { ...n.data, attributes: [...n.data.attributes, newAttr] } }
-        : n
-    ));
-    setEdges((eds) => [...eds, {
-      id: `e-${attrId}-${newAttr.id}`,
-      source: sourceNodeId, sourceHandle: `${attrId}-source`,
-      target: targetNodeId, targetHandle: `${newAttr.id}-target`,
-      type: 'smoothstep',
-    }]);
-  }, [setNodes, setEdges, pushHistory]);
-
-  // ── MergeNode callbacks ────────────────────────────────────────────────
-
-  const onJoinTypeChange = useCallback((nodeId, joinType) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, joinType } } : n));
-  }, [setNodes, pushHistory]);
-
-  const onAddKey = useCallback((nodeId) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) =>
-      n.id === nodeId
-        ? { ...n, data: { ...n.data, keyPairs: [...(n.data.keyPairs || []), { left: '', right: '' }] } }
-        : n
-    ));
-  }, [setNodes, pushHistory]);
-
-  const onRemoveKey = useCallback((nodeId, index) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) =>
-      n.id === nodeId
-        ? { ...n, data: { ...n.data, keyPairs: (n.data.keyPairs || []).filter((_, i) => i !== index) } }
-        : n
-    ));
-  }, [setNodes, pushHistory]);
-
-  const onUpdateKey = useCallback((nodeId, index, side, value) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) =>
-      n.id === nodeId
-        ? { ...n, data: { ...n.data, keyPairs: (n.data.keyPairs || []).map((p, i) => i === index ? { ...p, [side]: value } : p) } }
-        : n
-    ));
-  }, [setNodes, pushHistory]);
-
-  // ── FunctionNode callbacks ─────────────────────────────────────────────
-
-  const onFunctionInputDrop = useCallback((funcNodeId, { sourceNodeId, attrId, attrName, sourceNodeLabel }) => {
-    pushHistory();
-    const newInput = { id: uid(), attrName, sourceNodeId, sourceNodeLabel: sourceNodeLabel || sourceNodeId, sourceAttrId: attrId };
-    setNodes((nds) => nds.map((n) =>
-      n.id === funcNodeId
-        ? { ...n, data: { ...n.data, inputs: [...n.data.inputs, newInput] } }
-        : n
-    ));
-    setEdges((eds) => [...eds, {
-      id: `e-fn-${attrId}-${newInput.id}`,
-      source: sourceNodeId, sourceHandle: `${attrId}-source`,
-      target: funcNodeId, targetHandle: `${newInput.id}-target`,
-      type: 'smoothstep',
-      style: { stroke: '#10b981', strokeWidth: 1.5 },
-      markerEnd: { type: MarkerType.ArrowClosed, color: '#10b981' },
-    }]);
-  }, [setNodes, setEdges, pushHistory]);
-
-  const onDeleteFunctionInput = useCallback((funcNodeId, inputId) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) =>
-      n.id === funcNodeId
-        ? { ...n, data: { ...n.data, inputs: n.data.inputs.filter((i) => i.id !== inputId) } }
-        : n
-    ));
-    setEdges((eds) => eds.filter((e) => e.targetHandle !== `${inputId}-target`));
-  }, [setNodes, setEdges, pushHistory]);
-
-  const onAddFunctionOutput = useCallback((funcNodeId) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) =>
-      n.id === funcNodeId
-        ? { ...n, data: { ...n.data, outputs: [...n.data.outputs, makeAttr('output_col')] } }
-        : n
-    ));
-  }, [setNodes, pushHistory]);
-
-  const onDeleteFunctionOutput = useCallback((funcNodeId, outputId) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) =>
-      n.id === funcNodeId
-        ? { ...n, data: { ...n.data, outputs: n.data.outputs.filter((o) => o.id !== outputId) } }
-        : n
-    ));
-    setEdges((eds) => eds.filter((e) => !e.sourceHandle?.startsWith(outputId) && !e.targetHandle?.startsWith(outputId)));
-  }, [setNodes, setEdges, pushHistory]);
-
-  const onFunctionOutputChange = useCallback((funcNodeId, outputId, name) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) =>
-      n.id === funcNodeId
-        ? { ...n, data: { ...n.data, outputs: n.data.outputs.map((o) => o.id === outputId ? { ...o, name } : o) } }
-        : n
-    ));
-  }, [setNodes, pushHistory]);
-
-  callbacks.current = {
-    onLabelChange, onAttributeChange, onAttributeTypeChange,
-    onAddAttribute, onDeleteAttribute, onReorderAttributes, onAttributeDrop,
-    onJoinTypeChange, onAddKey, onRemoveKey, onUpdateKey,
-    onFunctionInputDrop, onDeleteFunctionInput,
-    onAddFunctionOutput, onDeleteFunctionOutput, onFunctionOutputChange,
-  };
-
-  // ── Derived state ──────────────────────────────────────────────────────
+  // ── Derived state ─────────────────────────────────────────────────────────
 
   const nodesWithCallbacks = useMemo(() => {
     const enriched = nodes.map((n) => {
-      if (n.type !== 'mergeNode') return n;
-      const leftEdge  = edges.find((e) => e.target === n.id && e.targetHandle === 'left-in');
-      const rightEdge = edges.find((e) => e.target === n.id && e.targetHandle === 'right-in');
-      const leftNode  = leftEdge  ? nodes.find((nd) => nd.id === leftEdge.source)  : null;
-      const rightNode = rightEdge ? nodes.find((nd) => nd.id === rightEdge.source) : null;
-      return {
-        ...n,
-        data: {
-          ...n.data,
-          leftDF:  leftNode  ? { id: leftNode.id,  label: leftNode.data.label,  attributes: leftNode.data.attributes  || [] } : null,
-          rightDF: rightNode ? { id: rightNode.id, label: rightNode.data.label, attributes: rightNode.data.attributes || [] } : null,
-        },
-      };
+      if (n.type === 'mergeNode') {
+        const leftEdge  = edges.find((e) => e.target === n.id && e.targetHandle === 'left-in');
+        const rightEdge = edges.find((e) => e.target === n.id && e.targetHandle === 'right-in');
+        const leftNode  = leftEdge  ? nodes.find((nd) => nd.id === leftEdge.source)  : null;
+        const rightNode = rightEdge ? nodes.find((nd) => nd.id === rightEdge.source) : null;
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            leftDF:  leftNode  ? { id: leftNode.id,  label: leftNode.data.label,  attributes: leftNode.data.attributes  || [] } : null,
+            rightDF: rightNode ? { id: rightNode.id, label: rightNode.data.label, attributes: rightNode.data.attributes || [] } : null,
+          },
+        };
+      }
+      return n;
     });
     return attachCallbacks(enriched, callbacks.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -294,28 +132,30 @@ export function useLineageState() {
     [nodes]
   );
 
-  // ── Graph operations ───────────────────────────────────────────────────
+  // ── Graph operations ───────────────────────────────────────────────────────
+
+  const OPERATOR_EDGE_COLOR = {
+    'df-out':     '#7c3aed',
+    'out':        '#7c3aed',
+    'filter-out': '#f97316',
+  };
 
   const onConnect = useCallback((params) => {
     pushHistory();
-    const isMergeEdge = params.sourceHandle === 'df-out' || params.sourceHandle === 'out';
+    const color = OPERATOR_EDGE_COLOR[params.sourceHandle];
     setEdges((eds) => addEdge(
-      isMergeEdge
-        ? { ...params, type: 'smoothstep', style: { stroke: '#7c3aed', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#7c3aed' } }
+      color
+        ? { ...params, type: 'smoothstep', style: { stroke: color, strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color } }
         : { ...params, type: 'smoothstep' },
       eds
     ));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setEdges, pushHistory]);
 
   const onKeyDown = useCallback((e) => {
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
-
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
-      e.preventDefault(); undo(); return;
-    }
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) {
-      e.preventDefault(); redo(); return;
-    }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') { e.preventDefault(); undo(); return; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); redo(); return; }
     if (e.key === 'Delete' || e.key === 'Backspace') {
       pushHistory();
       setEdges((eds) => eds.filter((ed) => !ed.selected));
@@ -327,14 +167,12 @@ export function useLineageState() {
     }
   }, [undo, redo, pushHistory, setEdges, setNodes]);
 
-  const addNode = useCallback((x, y) => {
+  // Generic add — looks up config by type, calls config.make()
+  const addNodeOfType = useCallback((type, x, y) => {
+    const entry = NODE_REGISTRY.find((e) => e.config.type === type);
+    if (!entry) return;
     pushHistory();
-    setNodes((nds) => [...nds, makeNode('new_dataframe', x, y, ['column_1'])]);
-  }, [setNodes, pushHistory]);
-
-  const addFunctionNode = useCallback((x, y) => {
-    pushHistory();
-    setNodes((nds) => [...nds, makeFunctionNode('my_function', x, y)]);
+    setNodes((nds) => [...nds, entry.config.make(x, y)]);
   }, [setNodes, pushHistory]);
 
   const deleteNode = useCallback((nodeId) => {
@@ -348,20 +186,14 @@ export function useLineageState() {
     const [a, b] = dfs;
     const midX = (a.position.x + b.position.x) / 2 + 20;
     const midY = (a.position.y + b.position.y) / 2 - 40;
-    const mergeId = uid();
-    const mergeNode = {
-      id: mergeId,
-      type: 'mergeNode',
-      position: { x: midX, y: midY },
-      data: { joinType: 'inner', keyPairs: [] },
-    };
-    const resultNode = makeNode('result_df', midX + 300, midY + 20, []);
-    setNodes((nds) => [...nds, mergeNode, resultNode]);
+    const mergeNodeDef = mergeConfig.make(midX, midY);
+    const resultNode   = dataframeConfig.make(midX + 300, midY + 20, { label: 'result_df', attributes: [] });
+    setNodes((nds) => [...nds, mergeNodeDef, resultNode]);
     setEdges((eds) => [
       ...eds,
-      makeMergeEdge(a.id, 'df-out', mergeId, 'left-in'),
-      makeMergeEdge(b.id, 'df-out', mergeId, 'right-in'),
-      makeMergeEdge(mergeId, 'out', resultNode.id, 'df-in'),
+      makeMergeEdge(a.id,            'df-out', mergeNodeDef.id, 'left-in'),
+      makeMergeEdge(b.id,            'df-out', mergeNodeDef.id, 'right-in'),
+      makeMergeEdge(mergeNodeDef.id, 'out',    resultNode.id,   'df-in'),
     ]);
   }, [setNodes, setEdges, pushHistory]);
 
@@ -376,6 +208,6 @@ export function useLineageState() {
     nodes, edges, onNodesChange, onEdgesChange,
     nodesWithCallbacks, selectedDFs,
     onConnect, onKeyDown, undo, redo,
-    addNode, addFunctionNode, deleteNode, createMerge, restoreState,
+    addNodeOfType, deleteNode, createMerge, restoreState,
   };
 }

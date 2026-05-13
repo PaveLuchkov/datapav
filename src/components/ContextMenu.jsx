@@ -1,9 +1,7 @@
-export default function ContextMenu({ menu, onAddNode, onAddFunction, onMerge, onDelete, canMerge }) {
-  if (!menu) return null;
+import { getNodeDisplayName } from '../nodes/registry';
 
-  const nodeLabel = menu.nodeType === 'mergeNode' ? 'Merge'
-    : menu.nodeType === 'functionNode' ? 'Function'
-    : 'DataFrame';
+export default function ContextMenu({ menu, addableNodes, onAddNode, onMerge, onDelete, canMerge }) {
+  if (!menu) return null;
 
   return (
     <div
@@ -13,12 +11,16 @@ export default function ContextMenu({ menu, onAddNode, onAddFunction, onMerge, o
     >
       {menu.type === 'pane' && (
         <>
-          <button onClick={onAddNode} className="w-full text-left px-4 py-2 text-slate-200 hover:bg-slate-700 transition-colors">
-            + Add DataFrame here
-          </button>
-          <button onClick={onAddFunction} className="w-full text-left px-4 py-2 text-emerald-300 hover:bg-slate-700 transition-colors border-t border-slate-700">
-            ƒ Add Function here
-          </button>
+          {addableNodes.map((item, i) => (
+            <button
+              key={item.type}
+              onClick={() => onAddNode(item.type)}
+              className={`w-full text-left px-4 py-2 hover:bg-slate-700 transition-colors ${i > 0 ? 'border-t border-slate-700' : ''}`}
+              style={{ color: item.type === 'functionNode' ? '#6ee7b7' : '#e2e8f0' }}
+            >
+              {item.icon} Add {item.label} here
+            </button>
+          ))}
           {canMerge && (
             <button onClick={onMerge} className="w-full text-left px-4 py-2 text-violet-300 hover:bg-slate-700 transition-colors border-t border-slate-700">
               ⋈ Merge selected DFs
@@ -28,7 +30,7 @@ export default function ContextMenu({ menu, onAddNode, onAddFunction, onMerge, o
       )}
       {menu.type === 'node' && (
         <button onClick={onDelete} className="w-full text-left px-4 py-2 text-red-400 hover:bg-slate-700 transition-colors">
-          Delete {nodeLabel}
+          Delete {getNodeDisplayName(menu.nodeType)}
         </button>
       )}
     </div>

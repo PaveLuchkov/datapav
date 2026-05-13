@@ -2,37 +2,15 @@ import React, { useState, useCallback, useRef } from 'react';
 import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-import DataFrameNode from './DataFrameNode';
-import MergeNode from './MergeNode';
-import FunctionNode from './FunctionNode';
 import Toolbar from './Toolbar';
 import { DragProvider } from './components/DragContext';
 import ContextMenu from './components/ContextMenu';
-import NodeErrorBoundary from './components/NodeErrorBoundary';
+import SearchModal from './components/SearchModal';
 import { useLineageState } from './hooks/useLineageState';
 import { useLineagePersistence } from './hooks/useLineagePersistence';
 import { useContextMenu } from './hooks/useContextMenu';
 import { useAutoLayout } from './hooks/useAutoLayout';
-import SearchModal from './components/SearchModal';
-
-function isValidConnection({ sourceHandle, targetHandle }) {
-  if (sourceHandle?.endsWith('-source') && targetHandle?.endsWith('-target')) return true;
-  if (sourceHandle === 'df-out' && (targetHandle === 'left-in' || targetHandle === 'right-in')) return true;
-  if (sourceHandle === 'out' && targetHandle === 'df-in') return true;
-  return false;
-}
-
-function withErrorBoundary(NodeComponent) {
-  return function BoundedNode(props) {
-    return <NodeErrorBoundary><NodeComponent {...props} /></NodeErrorBoundary>;
-  };
-}
-
-const nodeTypes = {
-  dataFrameNode: withErrorBoundary(DataFrameNode),
-  mergeNode:     withErrorBoundary(MergeNode),
-  functionNode:  withErrorBoundary(FunctionNode),
-};
+import { nodeTypes, isValidConnection, getMinimapColor, ADDABLE_NODES } from './nodes/registry';
 
 export default function App() {
   const reactFlowWrapper = useRef(null);
@@ -42,7 +20,7 @@ export default function App() {
     nodes, edges, onNodesChange, onEdgesChange,
     nodesWithCallbacks, selectedDFs,
     onConnect, onKeyDown, undo, redo,
-    addNode, addFunctionNode, deleteNode, createMerge, restoreState,
+    addNodeOfType, deleteNode, createMerge, restoreState,
   } = useLineageState();
 
   const { applyLayout } = useAutoLayout();
@@ -65,19 +43,12 @@ export default function App() {
 
   const { menu, closeMenu, onPaneContextMenu, onNodeContextMenu } = useContextMenu(reactFlowWrapper);
 
-  const addNodeAtMenu = useCallback(() => {
+  const addNodeOfTypeAtMenu = useCallback((type) => {
     if (!menu || !reactFlowInstance.current) return;
     const { x, y } = reactFlowInstance.current.screenToFlowPosition({ x: menu.flowX, y: menu.flowY });
-    addNode(x, y);
+    addNodeOfType(type, x, y);
     closeMenu();
-  }, [menu, addNode, closeMenu]);
-
-  const addFunctionAtMenu = useCallback(() => {
-    if (!menu || !reactFlowInstance.current) return;
-    const { x, y } = reactFlowInstance.current.screenToFlowPosition({ x: menu.flowX, y: menu.flowY });
-    addFunctionNode(x, y);
-    closeMenu();
-  }, [menu, addFunctionNode, closeMenu]);
+  }, [menu, addNodeOfType, closeMenu]);
 
   const deleteNodeFromMenu = useCallback(() => {
     if (!menu) return;
@@ -87,19 +58,12 @@ export default function App() {
 
   // ── Toolbar actions ────────────────────────────────────────────────────
 
-  const addNodeCenter = useCallback(() => {
+  const addNodeCenter = useCallback((type) => {
     const pos = reactFlowInstance.current
       ? reactFlowInstance.current.screenToFlowPosition({ x: 200, y: 200 })
       : { x: 200, y: 200 };
-    addNode(pos.x, pos.y);
-  }, [addNode]);
-
-  const addFunctionCenter = useCallback(() => {
-    const pos = reactFlowInstance.current
-      ? reactFlowInstance.current.screenToFlowPosition({ x: 200, y: 200 })
-      : { x: 200, y: 200 };
-    addFunctionNode(pos.x, pos.y);
-  }, [addFunctionNode]);
+    addNodeOfType(type, pos.x, pos.y);
+  }, [addNodeOfType]);
 
   const handleMergeSelected = useCallback(() => {
     createMerge(selectedDFs);
@@ -119,12 +83,7 @@ export default function App() {
   const navigateToNode = useCallback((nodeId) => {
     const target = nodes.find((n) => n.id === nodeId);
     if (!target || !reactFlowInstance.current) return;
-    reactFlowInstance.current.fitView({
-      nodes: [target],
-      duration: 600,
-      maxZoom: 1.5,
-      padding: 0.4,
-    });
+    reactFlowInstance.current.fitView({ nodes: [target], duration: 600, maxZoom: 1.5, padding: 0.4 });
   }, [nodes]);
 
   const handleKeyDown = useCallback((e) => {
@@ -162,7 +121,7 @@ export default function App() {
             <Background color="#1e3a5f" gap={20} size={1} />
             <Controls position="bottom-right" />
             <MiniMap
-              nodeColor={(n) => n.type === 'mergeNode' ? '#2e1065' : n.type === 'functionNode' ? '#052e16' : '#1a3a5c'}
+              nodeColor={getMinimapColor}
               maskColor="rgba(15,23,42,0.7)"
               position="bottom-left"
             />
@@ -170,8 +129,8 @@ export default function App() {
         </div>
 
         <Toolbar
+          addableNodes={ADDABLE_NODES}
           onAddNode={addNodeCenter}
-          onAddFunction={addFunctionCenter}
           onSave={saveState}
           onLoad={loadState}
           onExportPng={exportPng}
@@ -185,8 +144,8 @@ export default function App() {
 
         <ContextMenu
           menu={menu}
-          onAddNode={addNodeAtMenu}
-          onAddFunction={addFunctionAtMenu}
+          addableNodes={ADDABLE_NODES}
+          onAddNode={addNodeOfTypeAtMenu}
           onMerge={handleMergeSelected}
           onDelete={deleteNodeFromMenu}
           canMerge={selectedDFs.length === 2}

@@ -1,0 +1,30 @@
+import { uid } from '../../utils/uid';
+
+const colors = {
+  bg:          '#1c0902',
+  header:      '#431407',
+  border:      '#9a3412',
+  handleFill:  '#fb923c',
+  handleBorder:'#1c0902',
+};
+
+const filterConfig = {
+  type: 'filterNode',
+  colors,
+  minimapColor: '#431407',
+  dagreWidth: 260,
+  dagreHeight: () => 90,
+  make: (x, y) => ({
+    id: uid(),
+    type: 'filterNode',
+    position: { x, y },
+    data: { label: 'my_filter', condition: '' },
+  }),
+  menu: { label: 'Filter', icon: 'σ', btnClass: 'bg-orange-900 hover:bg-orange-800 text-orange-100 font-mono' },
+  connections: [
+    ['df-out', 'filter-in'],
+    ['filter-out', 'df-in'],
+  ],
+};
+
+export default filterConfig;

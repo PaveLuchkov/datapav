@@ -1,8 +1,12 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Handle, Position } from 'reactflow';
-import { useDrag } from './components/DragContext';
-import EditableText from './components/EditableText';
-import { DRAG_TYPE, COLORS, SIZES } from './constants';
+import { useDrag } from '../../components/DragContext';
+import EditableText from '../../components/EditableText';
+import { DRAG_TYPE } from '../../constants';
+import config from './config';
+
+const { colors } = config;
+const ROW_HEIGHT = 24;
 
 export default function FunctionNode({ id, data }) {
   const {
@@ -28,8 +32,6 @@ export default function FunctionNode({ id, data }) {
     return [...groups.entries()];
   }, [inputs]);
 
-  // ── Input panel drag handlers ─────────────────────────────────────────
-
   const onInputPanelDragOver = useCallback((e) => {
     if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
     if (dragRef.current?.sourceNodeId === id) return;
@@ -54,8 +56,6 @@ export default function FunctionNode({ id, data }) {
     onFunctionInputDrop(id, payload);
   }, [id, onFunctionInputDrop]);
 
-  // ── Output attr drag (to link to other nodes) ─────────────────────────
-
   const onOutputDragStart = useCallback((e, output) => {
     e.stopPropagation();
     const drag = { sourceNodeId: id, attrId: output.id, attrName: output.name, sourceNodeLabel: label };
@@ -64,26 +64,19 @@ export default function FunctionNode({ id, data }) {
     e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(drag));
   }, [id, label, dragRef]);
 
-  const onOutputDragEnd = useCallback(() => {
-    dragRef.current = null;
-  }, [dragRef]);
+  const onOutputDragEnd = useCallback(() => { dragRef.current = null; }, [dragRef]);
 
   const stop = (e) => e.stopPropagation();
 
   return (
     <div
       className="rounded-lg overflow-visible shadow-xl"
-      style={{
-        background: COLORS.function.bg,
-        border: `1px solid ${COLORS.function.border}`,
-        minWidth: SIZES.functionMinWidth,
-      }}
+      style={{ background: colors.bg, border: `1px solid ${colors.border}`, minWidth: 360 }}
       onContextMenu={stop}
     >
-      {/* Header */}
       <div
         className="px-3 py-2 border-b border-emerald-900 flex items-center gap-2 cursor-grab active:cursor-grabbing"
-        style={{ background: COLORS.function.header }}
+        style={{ background: colors.header }}
       >
         <span className="text-emerald-400 font-mono text-sm select-none font-bold">ƒ</span>
         <EditableText
@@ -95,61 +88,47 @@ export default function FunctionNode({ id, data }) {
         />
       </div>
 
-      {/* Body */}
-      <div className="flex" style={{ minHeight: SIZES.fnBodyMinHeight }}>
-
-        {/* LEFT: Inputs */}
+      <div className="flex" style={{ minHeight: 72 }}>
         <div
           className="py-1 transition-colors"
           style={{
             flex: '1 1 0',
             borderRight: '1px solid rgba(22,101,52,0.5)',
             background: inputsDragOver ? 'rgba(16,185,129,0.08)' : undefined,
-            outline: inputsDragOver ? `2px dashed ${COLORS.function.handleFill}` : 'none',
+            outline: inputsDragOver ? `2px dashed ${colors.handleFill}` : 'none',
             outlineOffset: -2,
           }}
           onDragOver={onInputPanelDragOver}
           onDragLeave={onInputPanelDragLeave}
           onDrop={onInputPanelDrop}
         >
-          <div className="px-3 pb-0.5 text-xs text-emerald-700 uppercase tracking-wider font-semibold">
-            Inputs
-          </div>
-
+          <div className="px-3 pb-0.5 text-xs text-emerald-700 uppercase tracking-wider font-semibold">Inputs</div>
           {inputs.length === 0 && (
-            <div className="px-3 py-2 text-xs italic" style={{ color: COLORS.function.border }}>
+            <div className="px-3 py-2 text-xs italic" style={{ color: colors.border }}>
               {inputsDragOver ? 'Drop to add input' : 'Drop columns here'}
             </div>
           )}
-
           {inputsDragOver && inputs.length > 0 && (
             <div className="px-3 py-0.5 text-xs text-emerald-500 text-center">+ drop to add</div>
           )}
-
           {groupedInputs.map(([groupLabel, groupItems]) => (
             <div key={groupLabel}>
-              <div
-                className="px-3 py-0.5 flex items-center gap-1 select-none"
-                style={{ color: '#4ade80', fontSize: 10 }}
-              >
+              <div className="px-3 py-0.5 flex items-center gap-1 select-none" style={{ color: '#4ade80', fontSize: 10 }}>
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600 flex-shrink-0" />
                 <span className="truncate font-medium">{groupLabel}</span>
               </div>
-
               {groupItems.map((inp) => (
                 <div
                   key={inp.id}
                   className="relative flex items-center group hover:bg-emerald-900/30 transition-colors"
-                  style={{ paddingLeft: 22, paddingRight: 8, minHeight: SIZES.fnRowMinHeight }}
+                  style={{ paddingLeft: 22, paddingRight: 8, minHeight: ROW_HEIGHT }}
                 >
                   <Handle
-                    type="target"
-                    position={Position.Left}
-                    id={`${inp.id}-target`}
+                    type="target" position={Position.Left} id={`${inp.id}-target`}
                     style={{
                       left: -5, top: '50%', transform: 'translateY(-50%)',
-                      position: 'absolute', background: COLORS.function.handleFill,
-                      border: `2px solid ${COLORS.function.handleBorder}`, width: 8, height: 8,
+                      position: 'absolute', background: colors.handleFill,
+                      border: `2px solid ${colors.handleBorder}`, width: 8, height: 8,
                     }}
                   />
                   <span className="text-emerald-200 text-xs flex-1 truncate">{inp.attrName}</span>
@@ -166,20 +145,15 @@ export default function FunctionNode({ id, data }) {
           ))}
         </div>
 
-        {/* RIGHT: Outputs */}
         <div
           className="py-1"
           style={{ flex: '1 1 0' }}
           onDragOver={(e) => { if (e.dataTransfer.types.includes(DRAG_TYPE)) e.stopPropagation(); }}
         >
-          <div className="px-3 pb-0.5 text-xs text-emerald-700 uppercase tracking-wider font-semibold">
-            Outputs
-          </div>
-
+          <div className="px-3 pb-0.5 text-xs text-emerald-700 uppercase tracking-wider font-semibold">Outputs</div>
           {outputs.length === 0 && (
-            <div className="px-3 py-2 text-xs italic" style={{ color: COLORS.function.border }}>No outputs yet</div>
+            <div className="px-3 py-2 text-xs italic" style={{ color: colors.border }}>No outputs yet</div>
           )}
-
           {outputs.map((output) => (
             <div
               key={output.id}
@@ -188,7 +162,7 @@ export default function FunctionNode({ id, data }) {
               onDragStart={(e) => onOutputDragStart(e, output)}
               onDragEnd={onOutputDragEnd}
               className="relative flex items-center group hover:bg-emerald-900/30 transition-colors cursor-grab active:cursor-grabbing"
-              style={{ paddingLeft: 8, paddingRight: 22, minHeight: SIZES.fnRowMinHeight }}
+              style={{ paddingLeft: 8, paddingRight: 22, minHeight: ROW_HEIGHT }}
             >
               <EditableText
                 value={output.name}
@@ -205,18 +179,15 @@ export default function FunctionNode({ id, data }) {
                 ×
               </button>
               <Handle
-                type="source"
-                position={Position.Right}
-                id={`${output.id}-source`}
+                type="source" position={Position.Right} id={`${output.id}-source`}
                 style={{
                   right: -5, top: '50%', transform: 'translateY(-50%)',
-                  position: 'absolute', background: COLORS.function.handleFill,
-                  border: `2px solid ${COLORS.function.handleBorder}`, width: 8, height: 8,
+                  position: 'absolute', background: colors.handleFill,
+                  border: `2px solid ${colors.handleBorder}`, width: 8, height: 8,
                 }}
               />
             </div>
           ))}
-
           <button
             onClick={(e) => { stop(e); onAddFunctionOutput(id); }}
             onMouseDown={stop}
