@@ -12,6 +12,33 @@ import { useCommentCallbacks }   from '../nodes/comment/callbacks';
 import dataframeConfig from '../nodes/dataframe/config';
 import mergeConfig     from '../nodes/merge/config';
 
+// ── Node clone helpers ─────────────────────────────────────────────────────
+// Remaps internal data IDs so pasted nodes don't share handles with originals.
+
+function cloneNodeData(type, data) {
+  if (type === 'dataFrameNode') {
+    return { ...data, attributes: (data.attributes || []).map((a) => ({ ...a, id: uid() })) };
+  }
+  if (type === 'functionNode') {
+    return {
+      ...data,
+      inputs:  (data.inputs  || []).map((i) => ({ ...i, id: uid() })),
+      outputs: (data.outputs || []).map((o) => ({ ...o, id: uid() })),
+    };
+  }
+  if (type === 'groupByNode') {
+    const idMap = new Map();
+    const newInputs = (data.inputs || []).map((inp) => { const nid = uid(); idMap.set(inp.id, nid); return { ...inp, id: nid }; });
+    return {
+      ...data,
+      inputs: newInputs,
+      groupByInputIds: (data.groupByInputIds || []).map((id) => idMap.get(id) ?? id),
+      aggregations: (data.aggregations || []).map((a) => ({ ...a, id: uid(), inputId: idMap.get(a.inputId) ?? a.inputId })),
+    };
+  }
+  return { ...data };
+}
+
 // ── Demo state ─────────────────────────────────────────────────────────────
 
 const makeAttr = (name, type = 'string') => ({ id: uid(), name, type });
@@ -40,7 +67,9 @@ const makeMergeEdge = (source, sourceHandle, target, targetHandle) => ({
 // ── Hook ───────────────────────────────────────────────────────────────────
 
 export function useLineageState() {
-  const callbacks = useRef({});
+  const callbacks  = useRef({});
+  const clipboard  = useRef([]);
+  const pasteCount = useRef(0);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -156,6 +185,30 @@ export function useLineageState() {
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') { e.preventDefault(); undo(); return; }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); redo(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+      const selected = nodesRef.current.filter((n) => n.selected);
+      if (!selected.length) return;
+      e.preventDefault();
+      clipboard.current = selected;
+      pasteCount.current = 0;
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+      if (!clipboard.current.length) return;
+      e.preventDefault();
+      pasteCount.current += 1;
+      const offset = pasteCount.current * 40;
+      pushHistory();
+      const pasted = clipboard.current.map((n) => ({
+        ...n,
+        id: uid(),
+        selected: true,
+        position: { x: n.position.x + offset, y: n.position.y + offset },
+        data: cloneNodeData(n.type, n.data),
+      }));
+      setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...pasted]);
+      return;
+    }
     if (e.key === 'Delete' || e.key === 'Backspace') {
       pushHistory();
       setEdges((eds) => eds.filter((ed) => !ed.selected));
