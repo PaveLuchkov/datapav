@@ -1,10 +1,8 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Handle, Position } from 'reactflow';
+import { activeDrag, setActiveDrag } from './dragState';
 
 const DRAG_TYPE = 'application/lineage-attr';
-
-// Module-level: track what's being dragged so dragOver can distinguish same-node vs cross-node
-let activeDrag = null;
 
 function EditableText({ value, onChange, className, placeholder }) {
   const [editing, setEditing] = useState(false);
@@ -84,13 +82,14 @@ export default function DataFrameNode({ id, data }) {
 
   const onAttrDragStart = useCallback((e, attr) => {
     e.stopPropagation();
-    activeDrag = { sourceNodeId: id, attrId: attr.id, attrName: attr.name };
+    const drag = { sourceNodeId: id, attrId: attr.id, attrName: attr.name, sourceNodeLabel: label };
+    setActiveDrag(drag);
     e.dataTransfer.effectAllowed = 'copy';
-    e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(activeDrag));
-  }, [id]);
+    e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(drag));
+  }, [id, label]);
 
   const onAttrDragEnd = useCallback(() => {
-    activeDrag = null;
+    setActiveDrag(null);
     setInsertIndex(null);
   }, []);
 

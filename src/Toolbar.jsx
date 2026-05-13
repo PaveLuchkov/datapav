@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Toolbar({ onAddNode, onSave, onLoad, onExportPng, selectedDFCount, onMergeSelected }) {
+export default function Toolbar({ onAddNode, onAddFunction, onSave, onLoad, onExportPng, selectedDFCount, onMergeSelected }) {
   const canMerge = selectedDFCount === 2;
 
   return (
@@ -13,6 +13,13 @@ export default function Toolbar({ onAddNode, onSave, onLoad, onExportPng, select
         className="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-700 hover:bg-blue-600 text-white transition-colors"
       >
         + DataFrame
+      </button>
+
+      <button
+        onClick={onAddFunction}
+        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-800 hover:bg-emerald-700 text-emerald-100 transition-colors font-mono"
+      >
+        ƒ Function
       </button>
 
       <button

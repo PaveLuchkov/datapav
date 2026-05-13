@@ -15,6 +15,7 @@ import { toPng } from 'html-to-image';
 
 import DataFrameNode from './DataFrameNode';
 import MergeNode from './MergeNode';
+import FunctionNode from './FunctionNode';
 import Toolbar from './Toolbar';
 
 const STORAGE_KEY = 'lineage-editor-state';
@@ -33,6 +34,16 @@ function makeNode(label, x, y, attributes) {
     type: 'dataFrameNode',
     position: { x, y },
     data: { label, attributes: attributes.map(makeAttr) },
+  };
+}
+
+function makeFunctionNode(name, x, y) {
+  const id = uid();
+  return {
+    id,
+    type: 'functionNode',
+    position: { x, y },
+    data: { label: name, inputs: [], outputs: [] },
   };
 }
 
@@ -180,10 +191,65 @@ export default function App() {
     ));
   }, [setNodes]);
 
+  // ── FunctionNode callbacks ─────────────────────────────────────────────
+
+  const onFunctionInputDrop = useCallback((funcNodeId, { sourceNodeId, attrId, attrName, sourceNodeLabel }) => {
+    const newInput = { id: uid(), attrName, sourceNodeId, sourceNodeLabel: sourceNodeLabel || sourceNodeId, sourceAttrId: attrId };
+    setNodes((nds) => nds.map((n) =>
+      n.id === funcNodeId
+        ? { ...n, data: { ...n.data, inputs: [...n.data.inputs, newInput] } }
+        : n
+    ));
+    setEdges((eds) => [...eds, {
+      id: `e-fn-${attrId}-${newInput.id}`,
+      source: sourceNodeId, sourceHandle: `${attrId}-source`,
+      target: funcNodeId, targetHandle: `${newInput.id}-target`,
+      type: 'smoothstep',
+      style: { stroke: '#10b981', strokeWidth: 1.5 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#10b981' },
+    }]);
+  }, [setNodes, setEdges]);
+
+  const onDeleteFunctionInput = useCallback((funcNodeId, inputId) => {
+    setNodes((nds) => nds.map((n) =>
+      n.id === funcNodeId
+        ? { ...n, data: { ...n.data, inputs: n.data.inputs.filter((i) => i.id !== inputId) } }
+        : n
+    ));
+    setEdges((eds) => eds.filter((e) => e.targetHandle !== `${inputId}-target`));
+  }, [setNodes, setEdges]);
+
+  const onAddFunctionOutput = useCallback((funcNodeId) => {
+    setNodes((nds) => nds.map((n) =>
+      n.id === funcNodeId
+        ? { ...n, data: { ...n.data, outputs: [...n.data.outputs, makeAttr('output_col')] } }
+        : n
+    ));
+  }, [setNodes]);
+
+  const onDeleteFunctionOutput = useCallback((funcNodeId, outputId) => {
+    setNodes((nds) => nds.map((n) =>
+      n.id === funcNodeId
+        ? { ...n, data: { ...n.data, outputs: n.data.outputs.filter((o) => o.id !== outputId) } }
+        : n
+    ));
+    setEdges((eds) => eds.filter((e) => !e.sourceHandle?.startsWith(outputId) && !e.targetHandle?.startsWith(outputId)));
+  }, [setNodes, setEdges]);
+
+  const onFunctionOutputChange = useCallback((funcNodeId, outputId, name) => {
+    setNodes((nds) => nds.map((n) =>
+      n.id === funcNodeId
+        ? { ...n, data: { ...n.data, outputs: n.data.outputs.map((o) => o.id === outputId ? { ...o, name } : o) } }
+        : n
+    ));
+  }, [setNodes]);
+
   callbacks.current = {
     onLabelChange, onAttributeChange, onAddAttribute, onDeleteAttribute,
     onReorderAttributes, onAttributeDrop,
     onJoinTypeChange, onAddKey, onRemoveKey, onUpdateKey,
+    onFunctionInputDrop, onDeleteFunctionInput,
+    onAddFunctionOutput, onDeleteFunctionOutput, onFunctionOutputChange,
   };
 
   const nodesWithCallbacks = useMemo(
@@ -192,7 +258,7 @@ export default function App() {
     [nodes]
   );
 
-  const nodeTypes = useMemo(() => ({ dataFrameNode: DataFrameNode, mergeNode: MergeNode }), []);
+  const nodeTypes = useMemo(() => ({ dataFrameNode: DataFrameNode, mergeNode: MergeNode, functionNode: FunctionNode }), []);
 
   // ── Connections ────────────────────────────────────────────────────────
 
@@ -294,6 +360,20 @@ export default function App() {
     setNodes((nds) => [...nds, makeNode('new_dataframe', pos.x, pos.y, ['column_1'])]);
   }, [setNodes]);
 
+  const addFunctionNode = useCallback(() => {
+    const pos = reactFlowInstance.current
+      ? reactFlowInstance.current.screenToFlowPosition({ x: 200, y: 200 })
+      : { x: 200, y: 200 };
+    setNodes((nds) => [...nds, makeFunctionNode('my_function', pos.x, pos.y)]);
+  }, [setNodes]);
+
+  const addFunctionAtMenu = useCallback(() => {
+    if (!menu || !reactFlowInstance.current) return;
+    const pos = reactFlowInstance.current.screenToFlowPosition({ x: menu.flowX, y: menu.flowY });
+    setNodes((nds) => [...nds, makeFunctionNode('my_function', pos.x, pos.y)]);
+    setMenu(null);
+  }, [menu, setNodes]);
+
   const saveState = useCallback(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ nodes, edges }));
     showToast('Saved!');
@@ -358,12 +438,13 @@ export default function App() {
         >
           <Background color="#1e3a5f" gap={20} size={1} />
           <Controls position="bottom-right" />
-          <MiniMap nodeColor={(n) => n.type === 'mergeNode' ? '#2e1065' : '#1a3a5c'} maskColor="rgba(15,23,42,0.7)" position="bottom-left" />
+          <MiniMap nodeColor={(n) => n.type === 'mergeNode' ? '#2e1065' : n.type === 'functionNode' ? '#052e16' : '#1a3a5c'} maskColor="rgba(15,23,42,0.7)" position="bottom-left" />
         </ReactFlow>
       </div>
 
       <Toolbar
         onAddNode={addNode}
+        onAddFunction={addFunctionNode}
         onSave={saveState}
         onLoad={loadState}
         onExportPng={exportPng}
@@ -383,6 +464,9 @@ export default function App() {
               <button onClick={addNodeAtMenu} className="w-full text-left px-4 py-2 text-slate-200 hover:bg-slate-700 transition-colors">
                 + Add DataFrame here
               </button>
+              <button onClick={addFunctionAtMenu} className="w-full text-left px-4 py-2 text-emerald-300 hover:bg-slate-700 transition-colors border-t border-slate-700">
+                ƒ Add Function here
+              </button>
               {selectedDFs.length === 2 && (
                 <button onClick={() => createMerge(selectedDFs)} className="w-full text-left px-4 py-2 text-violet-300 hover:bg-slate-700 transition-colors border-t border-slate-700">
                   ⋈ Merge selected DFs
@@ -392,7 +476,7 @@ export default function App() {
           )}
           {menu.type === 'node' && (
             <button onClick={deleteNodeFromMenu} className="w-full text-left px-4 py-2 text-red-400 hover:bg-slate-700 transition-colors">
-              Delete {menu.nodeType === 'mergeNode' ? 'Merge' : 'DataFrame'}
+              Delete {menu.nodeType === 'mergeNode' ? 'Merge' : menu.nodeType === 'functionNode' ? 'Function' : 'DataFrame'}
             </button>
           )}
         </div>
