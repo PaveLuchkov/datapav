@@ -20,6 +20,7 @@ as PNG or save it for the next session.
 - React Flow (`reactflow`) — canvas, nodes, edges, handles, pan/zoom
 - Tailwind CSS v3 — utility styles
 - `html-to-image` — PNG export
+- `dagre` — auto-layout
 
 ### Dev server
 Running at **http://localhost:3001** (port 3000 was occupied).
@@ -48,14 +49,16 @@ src/
 │   ├── ContextMenu.jsx       — Presentational context menu (pane / node variants)
 │   ├── DragContext.jsx       — React Context with useRef for drag state (no re-renders)
 │   ├── EditableText.jsx      — Shared inline-edit component (double-click to edit)
-│   └── NodeErrorBoundary.jsx — Class component; isolates node render crashes
+│   ├── NodeErrorBoundary.jsx — Class component; isolates node render crashes
+│   └── SearchModal.jsx       — Cmd+K search overlay: label + column search, keyboard nav
 ├── hooks/
+│   ├── useAutoLayout.js      — dagre LR layout; returns applyLayout(nodes, edges)
 │   ├── useContextMenu.js     — menu state + onPaneContextMenu / onNodeContextMenu
 │   ├── useLineagePersistence.js — save / load localStorage, export PNG
-│   └── useLineageState.js    — all nodes/edges state, callbacks, graph operations
-├── constants.js              — DRAG_TYPE, STORAGE_KEY, COLORS, SIZES, JOIN_TYPES
-├── App.jsx                   — UI shell: ReactFlow wiring, toast, toolbar actions (145 lines)
-├── DataFrameNode.jsx         — Custom RF node: editable title, draggable attribute rows
+│   └── useLineageState.js    — all nodes/edges state, callbacks, history, graph operations
+├── constants.js              — DRAG_TYPE, STORAGE_KEY, COLORS, SIZES, JOIN_TYPES, ATTR_TYPES, ATTR_TYPE_META
+├── App.jsx                   — UI shell: ReactFlow wiring, toast, toolbar actions
+├── DataFrameNode.jsx         — Custom RF node: editable title, draggable attribute rows, type badges
 ├── FunctionNode.jsx          — Custom RF node: input drop zone + draggable outputs
 ├── MergeNode.jsx             — Custom RF node: join type, key pairs, output columns
 └── Toolbar.jsx               — Top bar buttons
@@ -71,11 +74,12 @@ src/
 - Hover column → `×` appears → delete column (also removes connected edges)
 - Hover column → grip icon `⠿` → **drag within same node** to reorder
   - Blue insert-line indicator shows drop position
-- **Drag column onto a different DataFrame** → column is copied there + lineage edge created automatically
+- **Drag column onto a different DataFrame** → column is copied there + lineage edge created automatically; type is preserved
 - Per-column handles: left dot (target) + right dot (source) for manual edge drawing
 - Two teal square handles at top corners:
   - `df-in` (top-left) — receives connection from MergeNode output
   - `df-out` (top-right) — sends connection to MergeNode input
+- **Type badge** (`str`/`int`/`flt`/`dat`/`bool`) before each column name — click to cycle type; colored per type
 
 ### FunctionNode
 - Drop columns from any node onto the Inputs panel → creates input entry + edge
@@ -102,6 +106,27 @@ src/
   - `df-out` → `left-in`/`right-in`: DataFrame to MergeNode
   - `out` → `df-in`: MergeNode to DataFrame
 
+### Undo / Redo
+- `Ctrl+Z` / `Cmd+Z` — undo last mutation
+- `Ctrl+Y` / `Ctrl+Shift+Z` — redo
+- Also exposed as ↩ / ↪ toolbar buttons
+- History stack lives in `useLineageState` (max 50 snapshots, refs-based — no re-renders)
+- Every mutation (add/delete/reorder/connect/type-change/text-edit) pushes a snapshot beforehand
+- Load / restoreState clears both stacks
+
+### Auto-layout
+- **⬦ Auto-arrange** toolbar button — runs dagre LR layout, then `fitView`
+- `useAutoLayout.js` builds a dagre graph with type-aware node sizes
+- Result goes through `restoreState`, so it is itself undoable
+
+### Search (`Cmd+K`)
+- `Cmd+K` / `Ctrl+K` opens a search modal
+- Searches node labels and column names (DataFrameNode attributes, FunctionNode inputs/outputs)
+- Results show type icon, node name; column matches show `node › column` with type badge
+- Click result (or Enter on selected item) → `fitView` to that node with animation
+- Arrow keys navigate results, Escape closes
+- Empty query shows all nodes as quick-pick list
+
 ### Persistence
 - Save / Load buttons → `localStorage` key `lineage-editor-state`
 - Saves full `{ nodes, edges }` — all positions, types, data, edges
@@ -124,6 +149,11 @@ This avoids stale closures without recreating node objects on every render.
 callbacks.current = { onLabelChange, onAttributeChange, ... }
 nodesWithCallbacks = useMemo(() => attachCallbacks(enriched, callbacks.current), [nodes, edges])
 ```
+
+### Undo/Redo pattern
+`history` and `future` are plain refs (not state) holding `{ nodes, edges }` snapshots.
+`nodesRef`/`edgesRef` mirror current state synchronously so snapshots can be taken
+before functional `setNodes`/`setEdges` updates are applied.
 
 ### Drag system
 Two independent drag flows share the same HTML5 `draggable` API:
@@ -172,26 +202,6 @@ Fixed with the `DragContext` ref set at `dragstart`.
 
 ## Next Things To Build
 
-### High priority
-
-**Undo/Redo (`Ctrl+Z` / `Ctrl+Y`)**
-Deleting a node is permanent — biggest UX gap right now.
-Implementation: history stack of `{ nodes, edges }` snapshots (max 50) inside
-`useLineageState`. Push before every mutating operation, pop on undo.
-~50 lines, no new dependencies.
-
-**Column data types**
-Each attribute is currently just a name string. Add `type` field:
-`'string' | 'int' | 'date' | 'float' | 'bool'`.
-Show a small colored badge/icon next to the column name.
-Makes the graph actually informative, not just decorative.
-Change is localized to `DataFrameNode.jsx`, `makeAttr()`, and `EditableText` area.
-
-**Auto-layout (Dagre)**
-Large graphs become unmanageable when positioned manually.
-Library: `dagre` + `@dagrejs/graphlib` — ReactFlow has official examples for this.
-One "Auto-arrange" button in Toolbar that runs a top-down DAG layout.
-
 ### Medium priority
 
 **Export to SQL**
@@ -207,11 +217,6 @@ or download as `.sql`. Start with MergeNode → `JOIN`, DataFrameNode → `FROM`
 **Copy / paste nodes (`Ctrl+C` / `Ctrl+D`)**
 Duplicating a DataFrame with the same columns is a frequent operation.
 Store copied node in a ref, paste offset by (+40, +40).
-
-**Search (`Cmd+K`)**
-Fuzzy search over node labels and column names.
-Click result → `reactFlowInstance.setCenter()` to that node.
-Needed once there are more than ~20 nodes.
 
 ### Lower priority
 
