@@ -22,7 +22,7 @@ function createWindow() {
   if (isDev) {
     win.loadURL('http://localhost:3001');
   } else {
-    // In production __dirname is the asar root where index.html lives
+    // In production __dirname resolves to the build/ folder inside the asar
     win.loadFile(path.join(__dirname, 'index.html'));
   }
 

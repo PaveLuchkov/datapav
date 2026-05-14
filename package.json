@@ -32,10 +32,10 @@
       "output": "dist"
     },
     "extraMetadata": {
-      "main": "electron.js"
+      "main": "build/electron.js"
     },
     "files": [
-      { "from": "build", "to": ".", "filter": ["**/*"] }
+      "build/**/*"
     ],
     "win": {
       "target": [
