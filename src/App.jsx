@@ -149,6 +149,8 @@ export default function App() {
             onPaneClick={closeMenu}
             onNodeClick={closeMenu}
             fitView
+            minZoom={0.05}
+            maxZoom={2}
             deleteKeyCode={null}
             proOptions={{ hideAttribution: true }}
           >
