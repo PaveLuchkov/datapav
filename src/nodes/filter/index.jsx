@@ -33,6 +33,7 @@ const OP_STYLES = {
 export default function FilterNode({ id, data }) {
   const {
     label, conditions: rawConditions, condition: legacyCondition,
+    connectedAttrs = [],
     onLabelChange,
     onAddFilterCondition, onDeleteFilterCondition,
     onUpdateFilterExpr, onToggleFilterOp,
@@ -110,6 +111,7 @@ export default function FilterNode({ id, data }) {
                 onChange={(val) => onExprChange(val, cond.id)}
                 placeholder={idx === 0 ? 'e.g. @amount > 100' : 'condition…'}
                 fieldStyle={FIELD_STYLE}
+                attrSuggestions={connectedAttrs}
                 onClick={stop}
                 onMouseDown={stop}
               />

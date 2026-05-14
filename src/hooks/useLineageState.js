@@ -146,6 +146,40 @@ export function useLineageState() {
           .filter(Boolean);
         return { ...n, data: { ...n.data, connectedDFs } };
       }
+      if (n.type === 'filterNode') {
+        const connectedAttrs = edges
+          .filter((e) => e.target === n.id && e.targetHandle === 'df-in')
+          .flatMap((e) => {
+            const src = nodes.find((nd) => nd.id === e.source);
+            if (!src) return [];
+            if (src.type === 'dataFrameNode') return src.data.attributes || [];
+            if (src.type === 'functionNode')  return (src.data.outputs || []).map((o) => ({ id: o.id, name: o.name, type: o.type || 'string' }));
+            if (src.type === 'filterNode')    return src.data.attributes || [];
+            if (src.type === 'groupByNode') {
+              const keys = (src.data.groupByInputIds || [])
+                .map((gid) => (src.data.inputs || []).find((i) => i.id === gid))
+                .filter(Boolean)
+                .map((i) => ({ name: i.name, type: 'string' }));
+              const aggs = (src.data.aggregations || [])
+                .filter((a) => a.outputName)
+                .map((a) => ({ name: a.outputName, type: 'float' }));
+              return [...keys, ...aggs];
+            }
+            if (src.type === 'mergeNode') {
+              const lEdge = edges.find((ed) => ed.target === src.id && ed.targetHandle === 'left-in');
+              const rEdge = edges.find((ed) => ed.target === src.id && ed.targetHandle === 'right-in');
+              const lSrc  = lEdge ? nodes.find((nd) => nd.id === lEdge.source) : null;
+              const rSrc  = rEdge ? nodes.find((nd) => nd.id === rEdge.source) : null;
+              const lAttrs = lSrc?.data?.attributes || [];
+              const rAttrs = rSrc?.data?.attributes || [];
+              const seen   = new Set(lAttrs.map((a) => a.name));
+              return [...lAttrs, ...rAttrs.filter((a) => !seen.has(a.name))];
+            }
+            return [];
+          });
+        const unique = Array.from(new Map(connectedAttrs.map((a) => [a.name, a])).values());
+        return { ...n, data: { ...n.data, connectedAttrs: unique } };
+      }
       if (n.type === 'mergeNode') {
         const leftEdge  = edges.find((e) => e.target === n.id && e.targetHandle === 'left-in');
         const rightEdge = edges.find((e) => e.target === n.id && e.targetHandle === 'right-in');
