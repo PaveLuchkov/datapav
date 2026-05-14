@@ -22,7 +22,8 @@ function createWindow() {
   if (isDev) {
     win.loadURL('http://localhost:3001');
   } else {
-    win.loadFile(path.join(__dirname, '../build/index.html'));
+    // In production __dirname is the asar root where index.html lives
+    win.loadFile(path.join(__dirname, 'index.html'));
   }
 
   // Open external links in the system browser, not inside the app
