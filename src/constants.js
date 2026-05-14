@@ -1,4 +1,5 @@
-export const DRAG_TYPE  = 'application/lineage-attr';
+export const DRAG_TYPE    = 'application/lineage-attr';
+export const DRAG_TYPE_DF = 'application/lineage-df';
 export const STORAGE_KEY = 'lineage-editor-state';
 
 export const TABS_KEY       = 'lineage-editor-tabs';

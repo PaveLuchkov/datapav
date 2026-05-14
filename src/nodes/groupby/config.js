@@ -1,6 +1,6 @@
 import { uid } from '../../utils/uid';
 
-export const AGG_FUNCTIONS = ['sum', 'mean', 'count', 'min', 'max', 'first', 'last'];
+export const AGG_FUNCTIONS = ['sum','nunique', 'mean', 'count', 'min', 'max', 'first', 'last'];
 
 const colors = {
   bg:          '#031d2e',

@@ -4,7 +4,7 @@ export default function Toolbar({
   addableNodes, onAddNode,
   onSave, onLoad, onSaveToFile, onLoadFromFile, onExportPng,
   selectedDFCount, onMergeSelected,
-  onUndo, onRedo, onAutoLayout, onSearch, onImportSql,
+  onUndo, onRedo, onAutoLayout, onSearch, onImportSql, onExportSql,
 }) {
   const canMerge = selectedDFCount === 2;
 
@@ -56,6 +56,7 @@ export default function Toolbar({
       <div className="w-px bg-slate-600 self-stretch" />
 
       <button onClick={onImportSql} title="Import columns from a SELECT query" className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">⬆ SQL</button>
+      <button onClick={onExportSql} title="Export canvas as SQL" className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">⬇ SQL</button>
       <button onClick={onExportPng} className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">Export PNG</button>
 
       <div className="w-px bg-slate-600 self-stretch" />

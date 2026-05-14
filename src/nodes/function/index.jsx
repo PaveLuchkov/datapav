@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { Handle, Position } from 'reactflow';
 import { useDrag } from '../../components/DragContext';
 import EditableText from '../../components/EditableText';
-import { DRAG_TYPE } from '../../constants';
+import { DRAG_TYPE, DRAG_TYPE_DF } from '../../constants';
 import config from './config';
 
 const { colors } = config;
@@ -10,30 +10,38 @@ const ROW_HEIGHT = 24;
 
 export default function FunctionNode({ id, data }) {
   const {
-    label, inputs, outputs,
+    label, inputs, outputs, dfGroups,
     onLabelChange,
     onFunctionInputDrop,
     onDeleteFunctionInput,
     onAddFunctionOutput,
     onDeleteFunctionOutput,
     onFunctionOutputChange,
+    onFunctionDFDrop,
+    onDeleteDFGroup,
   } = data;
 
   const dragRef = useDrag();
   const [inputsDragOver, setInputsDragOver] = useState(false);
 
-  const groupedInputs = useMemo(() => {
-    const groups = new Map();
-    for (const inp of inputs) {
-      const key = inp.sourceNodeLabel || inp.sourceNodeId;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(inp);
+  const allGroups = useMemo(() => {
+    const map = new Map(); // sourceNodeId → { groupId, label, items }
+    for (const g of (dfGroups || [])) {
+      map.set(g.sourceNodeId, { groupId: g.id, label: g.sourceNodeLabel, items: [] });
     }
-    return [...groups.entries()];
-  }, [inputs]);
+    for (const inp of inputs) {
+      if (!map.has(inp.sourceNodeId)) {
+        map.set(inp.sourceNodeId, { groupId: null, label: inp.sourceNodeLabel || inp.sourceNodeId, items: [] });
+      }
+      map.get(inp.sourceNodeId).items.push(inp);
+    }
+    return [...map.values()];
+  }, [dfGroups, inputs]);
 
   const onInputPanelDragOver = useCallback((e) => {
-    if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
+    const hasCol = e.dataTransfer.types.includes(DRAG_TYPE);
+    const hasDF  = e.dataTransfer.types.includes(DRAG_TYPE_DF);
+    if (!hasCol && !hasDF) return;
     if (dragRef.current?.sourceNodeId === id) return;
     e.preventDefault();
     e.stopPropagation();
@@ -49,12 +57,18 @@ export default function FunctionNode({ id, data }) {
     e.preventDefault();
     e.stopPropagation();
     setInputsDragOver(false);
+    const rawDF = e.dataTransfer.getData(DRAG_TYPE_DF);
+    if (rawDF) {
+      const payload = JSON.parse(rawDF);
+      if (payload.sourceNodeId !== id) onFunctionDFDrop(id, payload);
+      return;
+    }
     const raw = e.dataTransfer.getData(DRAG_TYPE);
     if (!raw) return;
     const payload = JSON.parse(raw);
     if (payload.sourceNodeId === id) return;
     onFunctionInputDrop(id, payload);
-  }, [id, onFunctionInputDrop]);
+  }, [id, onFunctionInputDrop, onFunctionDFDrop]);
 
   const onOutputDragStart = useCallback((e, output) => {
     e.stopPropagation();
@@ -103,21 +117,36 @@ export default function FunctionNode({ id, data }) {
           onDrop={onInputPanelDrop}
         >
           <div className="px-3 pb-0.5 text-xs text-emerald-700 uppercase tracking-wider font-semibold">Inputs</div>
-          {inputs.length === 0 && (
+          {allGroups.length === 0 && (
             <div className="px-3 py-2 text-xs italic" style={{ color: colors.border }}>
-              {inputsDragOver ? 'Drop to add input' : 'Drop columns here'}
+              {inputsDragOver ? 'Drop to add input' : 'Drop columns or DataFrames here'}
             </div>
           )}
-          {inputsDragOver && inputs.length > 0 && (
+          {inputsDragOver && allGroups.length > 0 && (
             <div className="px-3 py-0.5 text-xs text-emerald-500 text-center">+ drop to add</div>
           )}
-          {groupedInputs.map(([groupLabel, groupItems]) => (
-            <div key={groupLabel}>
-              <div className="px-3 py-0.5 flex items-center gap-1 select-none" style={{ color: '#4ade80', fontSize: 10 }}>
+          {allGroups.map((group) => (
+            <div key={group.groupId || group.label}>
+              <div className="px-3 py-0.5 flex items-center gap-1 select-none group/grp" style={{ color: '#4ade80', fontSize: 10 }}>
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600 flex-shrink-0" />
-                <span className="truncate font-medium">{groupLabel}</span>
+                <span className="truncate font-medium flex-1">{group.label}</span>
+                {group.groupId !== null && group.items.length === 0 && (
+                  <button
+                    onClick={(e) => { stop(e); onDeleteDFGroup(id, group.groupId); }}
+                    onMouseDown={stop}
+                    className="text-red-400 opacity-0 group-hover/grp:opacity-100 hover:text-red-300 w-3 h-3 flex items-center justify-center transition-opacity flex-shrink-0"
+                    style={{ fontSize: 11 }}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
-              {groupItems.map((inp) => (
+              {group.items.length === 0 && (
+                <div className="px-3 py-1 text-xs italic" style={{ color: colors.border, paddingLeft: 22 }}>
+                  drag columns to add
+                </div>
+              )}
+              {group.items.map((inp) => (
                 <div
                   key={inp.id}
                   className="relative flex items-center group hover:bg-emerald-900/30 transition-colors"

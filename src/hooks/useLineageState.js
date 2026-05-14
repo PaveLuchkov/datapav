@@ -22,8 +22,9 @@ function cloneNodeData(type, data) {
   if (type === 'functionNode') {
     return {
       ...data,
-      inputs:  (data.inputs  || []).map((i) => ({ ...i, id: uid() })),
-      outputs: (data.outputs || []).map((o) => ({ ...o, id: uid() })),
+      inputs:   (data.inputs    || []).map((i) => ({ ...i, id: uid() })),
+      outputs:  (data.outputs   || []).map((o) => ({ ...o, id: uid() })),
+      dfGroups: (data.dfGroups  || []).map((g) => ({ ...g, id: uid() })),
     };
   }
   if (type === 'groupByNode') {

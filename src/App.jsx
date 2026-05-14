@@ -9,6 +9,8 @@ import ContextMenu from './components/ContextMenu';
 import SearchModal from './components/SearchModal';
 import TabBar from './components/TabBar';
 import SqlImportModal from './components/SqlImportModal';
+import SqlExportModal from './components/SqlExportModal';
+import { generateSql } from './utils/exportSql';
 import { useLineageState } from './hooks/useLineageState';
 import { useLineagePersistence } from './hooks/useLineagePersistence';
 import { useCanvasTabs } from './hooks/useCanvasTabs';
@@ -83,6 +85,16 @@ export default function App() {
     restoreState(laid, edges);
     setTimeout(() => reactFlowInstance.current?.fitView({ padding: 0.12 }), 50);
   }, [nodes, edges, applyLayout, restoreState]);
+
+  // ── SQL export ────────────────────────────────────────────────────────
+
+  const [sqlExportOpen, setSqlExportOpen] = useState(false);
+  const [exportedSql, setExportedSql] = useState('');
+
+  const handleExportSql = useCallback(() => {
+    setExportedSql(generateSql(nodes, edges));
+    setSqlExportOpen(true);
+  }, [nodes, edges]);
 
   // ── SQL import ────────────────────────────────────────────────────────
 
@@ -165,6 +177,7 @@ export default function App() {
           onAutoLayout={handleAutoLayout}
           onSearch={() => setSearchOpen(true)}
           onImportSql={() => setSqlImportOpen(true)}
+          onExportSql={handleExportSql}
         />
 
         <ContextMenu
@@ -194,6 +207,13 @@ export default function App() {
           <SqlImportModal
             onClose={() => setSqlImportOpen(false)}
             onImport={handleSqlImport}
+          />
+        )}
+
+        {sqlExportOpen && (
+          <SqlExportModal
+            sql={exportedSql}
+            onClose={() => setSqlExportOpen(false)}
           />
         )}
 
