@@ -1,70 +1,97 @@
-# Getting Started with Create React App
+# Loom — DataFrame Lineage Editor
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+> A visual canvas for documenting data transformations: DataFrames, joins, filters, aggregations — all connected as a graph with column-level lineage.
 
-## Available Scripts
+<!-- Add a screenshot or GIF here once you have one -->
+<!-- ![Loom demo](./docs/demo.gif) -->
 
-In the project directory, you can run:
+Built for data analysts and engineers who want to *draw* how data flows rather than describe it in text.
 
-### `npm start`
+---
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Features
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Node types
+| Node | Purpose |
+|---|---|
+| **DataFrame** | Table with typed columns — the main building block |
+| **Merge** | Visual JOIN with key pairs and join type selector (inner / left / right / outer) |
+| **Filter** | Multi-condition WHERE builder with `@column` syntax |
+| **GroupBy** | Group-by keys + aggregations (sum, mean, count, nunique…) |
+| **Function** | Free-form transformation with named inputs and outputs |
+| **Comment** | Sticky note for annotations |
 
-### `npm test`
+### Canvas
+- **Column-level lineage** — drag a column from one DataFrame onto another to copy it and auto-draw a lineage edge
+- **DF-level connections** — connect whole DataFrames to Merge / Filter / GroupBy / Function nodes via square handles
+- **Attribute Tracker `◎`** — type an attribute name to highlight every node that contains it; other nodes fade out; `@refs` in Filter conditions are tracked too
+- **Search `⌘K`** — fuzzy search across all node labels and column names, jump to result
+- **Auto-layout** — one-click dagre LR arrangement
+- **Undo / Redo** — full history (50 snapshots)
+- **Copy / Paste** — `⌘C` / `⌘D`, offset on repeated paste
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Filter `@column` autocomplete
+Type `@` inside any Filter condition and get instant suggestions pulled from connected upstream nodes — with type badges (`str`, `int`, `flt`…).
 
-### `npm run build`
+### Import / Export
+- **Save / Load JSON** — full canvas state in a portable file
+- **SQL export** — generates `SELECT … FROM … JOIN … WHERE` from the graph
+- **SQL import** — paste a `SELECT` query to scaffold a DataFrame node with columns
+- **Export PNG** — 3× pixel-ratio render of the current viewport
+- **Multiple tabs** — work on several canvases in the same session
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+---
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Getting started
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```bash
+git clone https://github.com/YOUR_USERNAME/loom.git
+cd loom
+npm install
+npm start          # opens at http://localhost:3000
+```
 
-### `npm run eject`
+> If port 3000 is occupied: `PORT=3001 npm start`
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+No backend, no database — everything lives in `localStorage`.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+---
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Keyboard shortcuts
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+| Shortcut | Action |
+|---|---|
+| `⌘K` | Open search |
+| `⌘⇧F` | Toggle attribute tracker |
+| `⌘Z` | Undo |
+| `⌘Y` / `⌘⇧Z` | Redo |
+| `⌘C` | Copy selected nodes |
+| `⌘D` | Paste |
+| `Delete` | Remove selected nodes or edge |
+| `@` in Filter | Autocomplete column from connected node |
 
-## Learn More
+---
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## How it works
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+1. **Add nodes** from the toolbar or right-click the canvas
+2. **Draw DF-level connections** by dragging from the square handle (top-right corner of any node) to another node's input handle (top-left)
+3. **Drag columns** between DataFrames to copy them and record where they came from
+4. **Drop columns** onto a Filter / GroupBy / Function input panel to wire them as inputs
+5. **Save** to a JSON file to share or resume the diagram later
 
-### Code Splitting
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Stack
 
-### Analyzing the Bundle Size
+- [React Flow](https://reactflow.dev/) — canvas, nodes, handles, edges
+- [React](https://react.dev/) (CRA)
+- [Tailwind CSS v3](https://tailwindcss.com/)
+- [dagre](https://github.com/dagrejs/dagre) — auto-layout
+- [html-to-image](https://github.com/bubkoo/html-to-image) — PNG export
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+---
 
-### Making a Progressive Web App
+## License
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+MIT
