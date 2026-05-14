@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNodesState, useEdgesState, addEdge, MarkerType } from 'reactflow';
 import { getActiveCanvasKey } from '../constants';
 import { uid } from '../utils/uid';
@@ -166,8 +166,41 @@ export function useLineageState() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges]);
 
+  // Sync result-DF attributes from their connected merge node's output columns.
+  // Runs after every nodes/edges change; handles chained merges across renders.
+  useEffect(() => {
+    const mergeOutputAttrs = {};
+    for (const n of nodes) {
+      if (n.type !== 'mergeNode') continue;
+      const leftEdge  = edges.find((e) => e.target === n.id && e.targetHandle === 'left-in');
+      const rightEdge = edges.find((e) => e.target === n.id && e.targetHandle === 'right-in');
+      const leftNode  = leftEdge  ? nodes.find((nd) => nd.id === leftEdge.source)  : null;
+      const rightNode = rightEdge ? nodes.find((nd) => nd.id === rightEdge.source) : null;
+      const seen = new Set();
+      mergeOutputAttrs[n.id] = [
+        ...(leftNode?.data?.attributes  || []),
+        ...(rightNode?.data?.attributes || []),
+      ].filter((a) => seen.has(a.name) ? false : seen.add(a.name));
+    }
+
+    let changed = false;
+    const updated = nodes.map((n) => {
+      if (n.type !== 'dataFrameNode') return n;
+      const inEdge = edges.find((e) => e.target === n.id && e.targetHandle === 'df-in' && e.sourceHandle === 'df-out');
+      if (!inEdge) return n;
+      const src = nodes.find((nd) => nd.id === inEdge.source);
+      if (src?.type !== 'mergeNode') return n;
+      const merged = mergeOutputAttrs[src.id] || [];
+      if (JSON.stringify(n.data.attributes) === JSON.stringify(merged)) return n;
+      changed = true;
+      return { ...n, data: { ...n.data, attributes: merged } };
+    });
+
+    if (changed) setNodes(updated);
+  }, [nodes, edges, setNodes]);
+
   const selectedDFs = useMemo(
-    () => nodes.filter((n) => n.selected && n.type === 'dataFrameNode'),
+    () => nodes.filter((n) => n.selected && (n.type === 'dataFrameNode' || n.type === 'mergeNode')),
     [nodes]
   );
 
@@ -248,11 +281,13 @@ export function useLineageState() {
     const midX = (a.position.x + b.position.x) / 2 + 20;
     const midY = (a.position.y + b.position.y) / 2 - 40;
     const mergeNodeDef = mergeConfig.make(midX, midY);
-    setNodes((nds) => [...nds, mergeNodeDef]);
+    const resultDFDef = dataframeConfig.make(midX + 420, midY, { label: 'merge_result', attributes: [] });
+    setNodes((nds) => [...nds, mergeNodeDef, resultDFDef]);
     setEdges((eds) => [
       ...eds,
       makeMergeEdge(a.id, 'df-out', mergeNodeDef.id, 'left-in'),
       makeMergeEdge(b.id, 'df-out', mergeNodeDef.id, 'right-in'),
+      makeMergeEdge(mergeNodeDef.id, 'df-out', resultDFDef.id, 'df-in'),
     ]);
   }, [setNodes, setEdges, pushHistory]);
 
