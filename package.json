@@ -35,7 +35,7 @@
       "main": "electron.js"
     },
     "files": [
-      "build/**/*"
+      { "from": "build", "to": ".", "filter": ["**/*"] }
     ],
     "win": {
       "target": [
