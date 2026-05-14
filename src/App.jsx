@@ -132,6 +132,29 @@ export default function App() {
     return ids;
   }, [trackerOpen, trackerQuery, nodes]);
 
+  const trackerSuggestions = useMemo(() => {
+    const q = trackerQuery.trim().toLowerCase();
+    if (!trackerOpen || !q) return [];
+    const counts = new Map();
+    for (const n of nodes) {
+      const names = new Set([
+        ...(n.data.attributes   || []).map((a) => a.name),
+        ...(n.data.inputs       || []).map((i) => i.name),
+        ...(n.data.outputs      || []).map((o) => o.name),
+        ...(n.data.aggregations || []).map((a) => a.outputName),
+      ].filter(Boolean));
+      for (const name of names) {
+        if (name.toLowerCase().includes(q)) {
+          counts.set(name, (counts.get(name) || 0) + 1);
+        }
+      }
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 12)
+      .map(([name, count]) => ({ name, count }));
+  }, [trackerOpen, trackerQuery, nodes]);
+
   const trackedNodes = useMemo(() => {
     if (!trackerMatchIds) return nodesWithCallbacks;
     return nodesWithCallbacks.map((n) => {
@@ -238,6 +261,7 @@ export default function App() {
           <AttributeTrackerPanel
             query={trackerQuery}
             matchCount={trackerMatchIds ? trackerMatchIds.size : 0}
+            suggestions={trackerSuggestions}
             onQueryChange={setTrackerQuery}
             onClose={() => { setTrackerOpen(false); setTrackerQuery(''); }}
           />
