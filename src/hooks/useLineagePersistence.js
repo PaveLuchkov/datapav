@@ -24,15 +24,29 @@ export function useLineagePersistence({ nodes, edges, restoreState, showToast })
     const pad = 40;
     const width = nodesBounds.width + pad * 2;
     const height = nodesBounds.height + pad * 2;
-    const viewport = getViewportForBounds(nodesBounds, width, height, 0.5, 2, pad);
+    // padding=0 because pixel padding is already included in width/height above
+    const viewport = getViewportForBounds(nodesBounds, width, height, 0.5, 2, 0);
     const flowEl = document.querySelector('.react-flow__viewport');
     if (!flowEl) return;
+
+    // Attribute edges have no inline stroke (rely on CSS class), html-to-image doesn't
+    // transfer CSS class styles to cloned SVG — set inline before capture, restore after
+    const edgePaths = Array.from(flowEl.querySelectorAll('.react-flow__edge-path'));
+    const savedStrokes = edgePaths.map((el) => ({ stroke: el.style.stroke, width: el.style.strokeWidth }));
+    edgePaths.forEach((el) => {
+      if (!el.style.stroke) el.style.stroke = '#60a5fa';
+      if (!el.style.strokeWidth) el.style.strokeWidth = '2';
+    });
+
     toPng(flowEl, {
       backgroundColor: '#0f172a', width, height, pixelRatio: 3,
       style: { width, height, transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})` },
     }).then((dataUrl) => {
+      edgePaths.forEach((el, i) => { el.style.stroke = savedStrokes[i].stroke; el.style.strokeWidth = savedStrokes[i].width; });
       const a = document.createElement('a');
       a.href = dataUrl; a.download = 'lineage.png'; a.click();
+    }).catch(() => {
+      edgePaths.forEach((el, i) => { el.style.stroke = savedStrokes[i].stroke; el.style.strokeWidth = savedStrokes[i].width; });
     });
   }, [nodes]);
 

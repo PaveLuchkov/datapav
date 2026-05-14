@@ -250,7 +250,7 @@ export function useLineageState() {
     setEdges((eds) => addEdge(
       color
         ? { ...params, type: 'smoothstep', style: { stroke: color, strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color } }
-        : { ...params, type: 'smoothstep' },
+        : { ...params, type: 'smoothstep', style: { stroke: '#60a5fa', strokeWidth: 2 } },
       eds
     ));
   // eslint-disable-next-line react-hooks/exhaustive-deps
