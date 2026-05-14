@@ -85,6 +85,15 @@ export default function GroupByNode({ id, data }) {
       style={{ background: colors.bg, border: `1px solid ${colors.border}`, minWidth: 380 }}
       onContextMenu={stop}
     >
+      <Handle
+        type="target" id="df-in" position={Position.Left}
+        style={{ top: 14, background: colors.handleFill, border: `2px solid ${colors.handleBorder}`, width: 8, height: 8, borderRadius: 2 }}
+      />
+      <Handle
+        type="source" id="df-out" position={Position.Right}
+        style={{ top: 14, background: colors.handleFill, border: `2px solid ${colors.handleBorder}`, width: 8, height: 8, borderRadius: 2 }}
+      />
+
       {/* Header */}
       <div
         className="px-3 py-2 border-b flex items-center gap-2 cursor-grab active:cursor-grabbing"

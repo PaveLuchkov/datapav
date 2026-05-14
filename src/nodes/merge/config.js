@@ -22,9 +22,7 @@ const mergeConfig = {
     data: { joinType: 'inner', keyPairs: [] },
   }),
   // No menu entry — merge is created via 2-DF selection, not direct add
-  connections: [
-    ['out', 'df-in'],
-  ],
+  connections: [],
 };
 
 export default mergeConfig;

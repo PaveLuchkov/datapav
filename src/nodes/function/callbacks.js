@@ -59,28 +59,8 @@ export function useFunctionCallbacks(setNodes, setEdges, pushHistory) {
     ));
   }, [setNodes, pushHistory]);
 
-  const onFunctionDFDrop = useCallback((funcNodeId, { sourceNodeId, sourceNodeLabel }) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) => {
-      if (n.id !== funcNodeId) return n;
-      const already = (n.data.dfGroups || []).some((g) => g.sourceNodeId === sourceNodeId);
-      if (already) return n;
-      return { ...n, data: { ...n.data, dfGroups: [...(n.data.dfGroups || []), { id: uid(), sourceNodeId, sourceNodeLabel }] } };
-    }));
-  }, [setNodes, pushHistory]);
-
-  const onDeleteDFGroup = useCallback((funcNodeId, groupId) => {
-    pushHistory();
-    setNodes((nds) => nds.map((n) =>
-      n.id === funcNodeId
-        ? { ...n, data: { ...n.data, dfGroups: (n.data.dfGroups || []).filter((g) => g.id !== groupId) } }
-        : n
-    ));
-  }, [setNodes, pushHistory]);
-
   return {
     onFunctionInputDrop, onDeleteFunctionInput,
     onAddFunctionOutput, onDeleteFunctionOutput, onFunctionOutputChange,
-    onFunctionDFDrop, onDeleteDFGroup,
   };
 }

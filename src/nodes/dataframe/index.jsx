@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
 import { useDrag } from '../../components/DragContext';
 import EditableText from '../../components/EditableText';
-import { DRAG_TYPE, DRAG_TYPE_DF, ATTR_TYPES, ATTR_TYPE_META } from '../../constants';
+import { DRAG_TYPE, ATTR_TYPES, ATTR_TYPE_META } from '../../constants';
 import config from './config';
 
 const { colors } = config;
@@ -42,16 +42,6 @@ export default function DataFrameNode({ id, data }) {
     dragRef.current = null;
     setInsertIndex(null);
   }, [dragRef]);
-
-  const onDFDragStart = useCallback((e) => {
-    e.stopPropagation();
-    const payload = { sourceNodeId: id, sourceNodeLabel: label };
-    dragRef.current = { ...payload, isDFDrag: true };
-    e.dataTransfer.effectAllowed = 'copy';
-    e.dataTransfer.setData(DRAG_TYPE_DF, JSON.stringify(payload));
-  }, [id, label, dragRef]);
-
-  const onDFDragEnd = useCallback(() => { dragRef.current = null; }, [dragRef]);
 
   const onAttrDragOver = useCallback((e, index) => {
     if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
@@ -134,26 +124,14 @@ export default function DataFrameNode({ id, data }) {
           className="text-white font-semibold text-sm"
           placeholder="DataFrame"
         />
-        <div className="flex items-center gap-1 ml-2" onMouseDown={(e) => e.stopPropagation()}>
-          <span
-            draggable
-            title="Drag to add this DataFrame to a Function node"
-            onMouseDown={(e) => e.stopPropagation()}
-            onDragStart={onDFDragStart}
-            onDragEnd={onDFDragEnd}
-            className="text-blue-300 hover:text-white font-mono text-xs select-none cursor-grab active:cursor-grabbing transition-colors opacity-40 hover:opacity-100 px-0.5"
-          >
-            ƒ
-          </span>
-          <button
-            onClick={handleAddAttribute}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="text-blue-300 hover:text-white text-xs font-bold leading-none w-5 h-5 flex items-center justify-center rounded hover:bg-blue-700 transition-colors"
-            title="Add attribute"
-          >
-            +
-          </button>
-        </div>
+        <button
+          onClick={handleAddAttribute}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="ml-2 text-blue-300 hover:text-white text-xs font-bold leading-none w-5 h-5 flex items-center justify-center rounded hover:bg-blue-700 transition-colors"
+          title="Add attribute"
+        >
+          +
+        </button>
       </div>
 
       {isDragOver && (

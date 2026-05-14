@@ -21,10 +21,9 @@ const functionConfig = {
     id: uid(),
     type: 'functionNode',
     position: { x, y },
-    data: { label: 'my_function', inputs: [], outputs: [], dfGroups: [] },
+    data: { label: 'my_function', inputs: [], outputs: [] },
   }),
   menu: { label: 'Function', icon: 'ƒ', btnClass: 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100 font-mono' },
-  // FunctionNode outputs use column-level -source/-target handles (covered by global rule)
   connections: [],
 };
 

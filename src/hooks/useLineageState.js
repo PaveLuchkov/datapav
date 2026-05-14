@@ -22,9 +22,8 @@ function cloneNodeData(type, data) {
   if (type === 'functionNode') {
     return {
       ...data,
-      inputs:   (data.inputs    || []).map((i) => ({ ...i, id: uid() })),
-      outputs:  (data.outputs   || []).map((o) => ({ ...o, id: uid() })),
-      dfGroups: (data.dfGroups  || []).map((g) => ({ ...g, id: uid() })),
+      inputs:  (data.inputs  || []).map((i) => ({ ...i, id: uid() })),
+      outputs: (data.outputs || []).map((o) => ({ ...o, id: uid() })),
     };
   }
   if (type === 'groupByNode') {
@@ -137,6 +136,16 @@ export function useLineageState() {
 
   const nodesWithCallbacks = useMemo(() => {
     const enriched = nodes.map((n) => {
+      if (n.type === 'functionNode') {
+        const connectedDFs = edges
+          .filter((e) => e.target === n.id && e.targetHandle === 'df-in')
+          .map((e) => {
+            const src = nodes.find((nd) => nd.id === e.source);
+            return src ? { sourceNodeId: src.id, sourceNodeLabel: src.data.label } : null;
+          })
+          .filter(Boolean);
+        return { ...n, data: { ...n.data, connectedDFs } };
+      }
       if (n.type === 'mergeNode') {
         const leftEdge  = edges.find((e) => e.target === n.id && e.targetHandle === 'left-in');
         const rightEdge = edges.find((e) => e.target === n.id && e.targetHandle === 'right-in');
@@ -165,9 +174,7 @@ export function useLineageState() {
   // ── Graph operations ───────────────────────────────────────────────────────
 
   const OPERATOR_EDGE_COLOR = {
-    'df-out':     '#7c3aed',
-    'out':        '#7c3aed',
-    'filter-out': '#f97316',
+    'df-out': '#7c3aed',
   };
 
   const onConnect = useCallback((params) => {
@@ -241,13 +248,11 @@ export function useLineageState() {
     const midX = (a.position.x + b.position.x) / 2 + 20;
     const midY = (a.position.y + b.position.y) / 2 - 40;
     const mergeNodeDef = mergeConfig.make(midX, midY);
-    const resultNode   = dataframeConfig.make(midX + 300, midY + 20, { label: 'result_df', attributes: [] });
-    setNodes((nds) => [...nds, mergeNodeDef, resultNode]);
+    setNodes((nds) => [...nds, mergeNodeDef]);
     setEdges((eds) => [
       ...eds,
-      makeMergeEdge(a.id,            'df-out', mergeNodeDef.id, 'left-in'),
-      makeMergeEdge(b.id,            'df-out', mergeNodeDef.id, 'right-in'),
-      makeMergeEdge(mergeNodeDef.id, 'out',    resultNode.id,   'df-in'),
+      makeMergeEdge(a.id, 'df-out', mergeNodeDef.id, 'left-in'),
+      makeMergeEdge(b.id, 'df-out', mergeNodeDef.id, 'right-in'),
     ]);
   }, [setNodes, setEdges, pushHistory]);
 

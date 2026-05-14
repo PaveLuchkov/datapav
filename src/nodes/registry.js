@@ -58,6 +58,7 @@ const nodeRules = NODE_REGISTRY.flatMap(({ config }) =>
 
 export function isValidConnection({ sourceHandle, targetHandle }) {
   if (sourceHandle?.endsWith('-source') && targetHandle?.endsWith('-target')) return true;
+  if (sourceHandle === 'df-out' && targetHandle === 'df-in') return true;
   return nodeRules.some(({ src, tgt }) => sourceHandle === src && targetHandle === tgt);
 }
 

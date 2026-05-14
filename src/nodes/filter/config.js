@@ -21,10 +21,7 @@ const filterConfig = {
     data: { label: 'my_filter', condition: '' },
   }),
   menu: { label: 'Filter', icon: 'σ', btnClass: 'bg-orange-900 hover:bg-orange-800 text-orange-100 font-mono' },
-  connections: [
-    ['df-out', 'filter-in'],
-    ['filter-out', 'df-in'],
-  ],
+  connections: [],
 };
 
 export default filterConfig;

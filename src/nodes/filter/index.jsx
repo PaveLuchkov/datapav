@@ -23,12 +23,12 @@ export default function FilterNode({ id, data }) {
       onContextMenu={stop}
     >
       <Handle
-        type="target" id="filter-in" position={Position.Left}
-        style={{ top: '50%', background: colors.handleFill, border: `2px solid ${colors.handleBorder}`, width: 10, height: 10 }}
+        type="target" id="df-in" position={Position.Left}
+        style={{ top: 14, background: colors.handleFill, border: `2px solid ${colors.handleBorder}`, width: 8, height: 8, borderRadius: 2 }}
       />
       <Handle
-        type="source" id="filter-out" position={Position.Right}
-        style={{ top: '50%', background: colors.handleFill, border: `2px solid ${colors.handleBorder}`, width: 10, height: 10 }}
+        type="source" id="df-out" position={Position.Right}
+        style={{ top: 14, background: colors.handleFill, border: `2px solid ${colors.handleBorder}`, width: 8, height: 8, borderRadius: 2 }}
       />
 
       <div

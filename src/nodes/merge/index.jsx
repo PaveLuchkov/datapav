@@ -46,7 +46,7 @@ export default function MergeNode({ id, data }) {
         style={{ top: '70%', background: colors.handleRight, border: `2px solid ${colors.handleBorder}`, width: 10, height: 10 }}
       />
       <Handle
-        type="source" id="out" position={Position.Right}
+        type="source" id="df-out" position={Position.Right}
         style={{ top: 14, background: colors.handleLeft, border: `2px solid ${colors.handleBorder}`, width: 8, height: 8, borderRadius: 2 }}
       />
 
