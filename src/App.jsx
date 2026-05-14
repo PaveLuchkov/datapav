@@ -19,6 +19,14 @@ import { useContextMenu } from './hooks/useContextMenu';
 import { useAutoLayout } from './hooks/useAutoLayout';
 import { nodeTypes, isValidConnection, getMinimapColor, ADDABLE_NODES } from './nodes/registry';
 
+function extractConditionRefs(data) {
+  const exprs = [
+    ...(data.conditions || []).map((c) => c.expr || ''),
+    data.condition || '',
+  ];
+  return exprs.flatMap((expr) => (expr.match(/@(\w+)/g) || []).map((m) => m.slice(1)));
+}
+
 export default function App() {
   const reactFlowWrapper = useRef(null);
   const reactFlowInstance = useRef(null);
@@ -126,6 +134,7 @@ export default function App() {
         ...(n.data.inputs       || []).map((i) => i.name),
         ...(n.data.outputs      || []).map((o) => o.name),
         ...(n.data.aggregations || []).map((a) => a.outputName),
+        ...extractConditionRefs(n.data),
       ].filter(Boolean);
       if (names.some((name) => name.toLowerCase().includes(q))) ids.add(n.id);
     }
@@ -142,6 +151,7 @@ export default function App() {
         ...(n.data.inputs       || []).map((i) => i.name),
         ...(n.data.outputs      || []).map((o) => o.name),
         ...(n.data.aggregations || []).map((a) => a.outputName),
+        ...extractConditionRefs(n.data),
       ].filter(Boolean));
       for (const name of names) {
         if (name.toLowerCase().includes(q)) {

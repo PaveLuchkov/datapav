@@ -1,9 +1,28 @@
 import React, { useCallback, useMemo, useRef } from 'react';
 import { Handle, Position } from 'reactflow';
 import EditableText from '../../components/EditableText';
+import HighlightedConditionInput from '../../components/HighlightedConditionInput';
 import config from './config';
 
 const { colors } = config;
+
+const FIELD_STYLE = {
+  background: '#0f0502',
+  border: `1px solid ${colors.border}`,
+  color: '#fed7aa',
+  caretColor: '#fb923c',
+  resize: 'none',
+  overflow: 'hidden',
+  lineHeight: '1.5',
+  fontSize: '0.75rem',
+  padding: '4px 8px',
+  borderRadius: '0.25rem',
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+  outline: 'none',
+  width: '100%',
+  display: 'block',
+  boxSizing: 'border-box',
+};
 
 const OP_STYLES = {
   WHERE: { color: '#9a3412', bg: 'rgba(120,53,15,0.4)' },
@@ -27,20 +46,10 @@ export default function FilterNode({ id, data }) {
   }, [rawConditions, legacyCondition]);
 
   const debounceRefs = useRef(new Map());
-  const onExprInput = useCallback((e, condId) => {
-    const el = e.target;
-    el.style.height = 'auto';
-    el.style.height = el.scrollHeight + 'px';
-    const val = el.value;
+  const onExprChange = useCallback((val, condId) => {
     clearTimeout(debounceRefs.current.get(condId));
     debounceRefs.current.set(condId, setTimeout(() => onUpdateFilterExpr(id, condId, val), 400));
   }, [id, onUpdateFilterExpr]);
-
-  const autoResize = useCallback((el) => {
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = el.scrollHeight + 'px';
-  }, []);
 
   return (
     <div
@@ -94,27 +103,17 @@ export default function FilterNode({ id, data }) {
               >
                 {cond.op.toLowerCase()}
               </span>
-              <textarea
+
+              <HighlightedConditionInput
                 key={`${cond.id}-input`}
-                ref={autoResize}
                 defaultValue={cond.expr}
-                onInput={(e) => onExprInput(e, cond.id)}
-                onChange={() => {}}
+                onChange={(val) => onExprChange(val, cond.id)}
+                placeholder={idx === 0 ? 'e.g. @amount > 100' : 'condition…'}
+                fieldStyle={FIELD_STYLE}
                 onClick={stop}
                 onMouseDown={stop}
-                rows={1}
-                placeholder={idx === 0 ? 'e.g. amount > 100' : 'condition…'}
-                className="flex-1 min-w-0 text-xs px-2 py-1 rounded outline-none font-mono"
-                style={{
-                  background: '#0f0502',
-                  border: `1px solid ${colors.border}`,
-                  color: '#fed7aa',
-                  caretColor: '#fb923c',
-                  resize: 'none',
-                  overflow: 'hidden',
-                  lineHeight: '1.5',
-                }}
               />
+
               {canDelete && (
                 <button
                   onClick={(e) => { stop(e); onDeleteFilterCondition(id, cond.id); }}
