@@ -2,11 +2,14 @@
   "name": "lineage-editor",
   "version": "0.1.0",
   "private": true,
+  "homepage": ".",
+  "main": "electron/main.js",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^13.5.0",
+    "dagre": "^0.8.5",
     "html-to-image": "^1.11.13",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
@@ -18,7 +21,30 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "electron:dev": "concurrently \"PORT=3001 react-scripts start\" \"wait-on http://localhost:3001 && electron .\"",
+    "electron:build": "react-scripts build && electron-builder --win --x64"
+  },
+  "build": {
+    "appId": "com.dataloom.app",
+    "productName": "DataLoom",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "build/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
   },
   "eslintConfig": {
     "extends": [
@@ -40,7 +66,11 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.5.0",
+    "concurrently": "^9.2.1",
+    "electron": "^42.0.1",
+    "electron-builder": "^26.8.1",
     "postcss": "^8.5.14",
-    "tailwindcss": "^3.4.19"
+    "tailwindcss": "^3.4.19",
+    "wait-on": "^9.0.10"
   }
 }
