@@ -8,13 +8,6 @@ import config, { TRANSFORM_OPS } from './config';
 
 const { colors } = config;
 
-const OP_LABELS = {
-  drop_duplicates: 'drop_duplicates()',
-  dropna:          'dropna()',
-  fillna:          'fillna(value)',
-  astype:          'astype(col, type)',
-  sort_values:     'sort_values(col)',
-};
 
 const TYPES = ['string', 'int', 'float', 'bool', 'datetime'];
 

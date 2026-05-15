@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BaseEdge, EdgeLabelRenderer, getStraightPath, getBezierPath } from 'reactflow';
+import { BaseEdge, EdgeLabelRenderer, getBezierPath } from 'reactflow';
 
 export default function ColumnEdge({
   id, sourceX, sourceY, targetX, targetY,
