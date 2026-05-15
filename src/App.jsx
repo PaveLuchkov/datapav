@@ -11,6 +11,7 @@ import AttributeTrackerPanel from './components/AttributeTrackerPanel';
 import TabBar from './components/TabBar';
 import SqlImportModal from './components/SqlImportModal';
 import SqlExportModal from './components/SqlExportModal';
+import ShortcutsModal from './components/ShortcutsModal';
 import { generateSql } from './utils/exportSql';
 import { useLineageState } from './hooks/useLineageState';
 import { useLineagePersistence } from './hooks/useLineagePersistence';
@@ -191,6 +192,7 @@ export default function App() {
   // ── Search ─────────────────────────────────────────────────────────────
 
   const [searchOpen, setSearchOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const navigateToNode = useCallback((nodeId) => {
     const target = nodes.find((n) => n.id === nodeId);
@@ -219,6 +221,12 @@ export default function App() {
     if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
       e.preventDefault();
       loadFromFile();
+      return;
+    }
+
+    if (!inInput && !e.ctrlKey && !e.metaKey && !e.altKey && e.key === '?') {
+      e.preventDefault();
+      setShortcutsOpen((v) => !v);
       return;
     }
 
@@ -351,6 +359,25 @@ export default function App() {
           onClose={closeTab}
           onRename={renameTab}
         />
+
+        {/* Help button */}
+        <button
+          onClick={() => setShortcutsOpen((v) => !v)}
+          title="Keyboard shortcuts (?)"
+          className="fixed top-3 right-3 z-20 w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-semibold transition-all duration-150 hover:scale-110"
+          style={{
+            background: shortcutsOpen ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: shortcutsOpen ? '#e2e8f0' : 'rgba(255,255,255,0.3)',
+            boxShadow: shortcutsOpen ? '0 0 0 2px rgba(148,163,184,0.2)' : 'none',
+          }}
+        >
+          ?
+        </button>
+
+        {shortcutsOpen && (
+          <ShortcutsModal onClose={() => setShortcutsOpen(false)} />
+        )}
       </div>
     </DragProvider>
   );
