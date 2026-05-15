@@ -3,9 +3,9 @@ import { MarkerType } from 'reactflow';
 import { uid } from '../../utils/uid';
 
 export function useFunctionCallbacks(setNodes, setEdges, pushHistory) {
-  const onFunctionInputDrop = useCallback((funcNodeId, { sourceNodeId, attrId, attrName, sourceNodeLabel }) => {
+  const onFunctionInputDrop = useCallback((funcNodeId, { sourceNodeId, attrId, attrName, attrType, sourceNodeLabel }) => {
     pushHistory();
-    const newInput = { id: uid(), attrName, sourceNodeId, sourceNodeLabel: sourceNodeLabel || sourceNodeId, sourceAttrId: attrId };
+    const newInput = { id: uid(), attrName, attrType: attrType || 'string', sourceNodeId, sourceNodeLabel: sourceNodeLabel || sourceNodeId, sourceAttrId: attrId };
     setNodes((nds) => nds.map((n) =>
       n.id === funcNodeId
         ? { ...n, data: { ...n.data, inputs: [...n.data.inputs, newInput] } }
@@ -59,8 +59,17 @@ export function useFunctionCallbacks(setNodes, setEdges, pushHistory) {
     ));
   }, [setNodes, pushHistory]);
 
+  const onFunctionOutputTypeChange = useCallback((funcNodeId, outputId, type) => {
+    pushHistory();
+    setNodes((nds) => nds.map((n) =>
+      n.id === funcNodeId
+        ? { ...n, data: { ...n.data, outputs: n.data.outputs.map((o) => o.id === outputId ? { ...o, type } : o) } }
+        : n
+    ));
+  }, [setNodes, pushHistory]);
+
   return {
     onFunctionInputDrop, onDeleteFunctionInput,
-    onAddFunctionOutput, onDeleteFunctionOutput, onFunctionOutputChange,
+    onAddFunctionOutput, onDeleteFunctionOutput, onFunctionOutputChange, onFunctionOutputTypeChange,
   };
 }

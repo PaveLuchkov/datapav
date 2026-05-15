@@ -164,6 +164,39 @@ const IcoCrosshair = () => (
   </Ico>
 );
 
+const IcoRename = () => (
+  <Ico>
+    <line x1="1.5" y1="5" x2="5.5" y2="5" />
+    <polyline points="6.5,4 7.5,5 6.5,6" />
+    <line x1="8.5" y1="5" x2="13.5" y2="5" />
+    <line x1="1.5" y1="10" x2="4" y2="10" />
+    <polyline points="5,9 6,10 5,11" />
+    <line x1="7" y1="10" x2="13.5" y2="10" />
+  </Ico>
+);
+
+const IcoConcat = () => (
+  <Ico>
+    <rect x="1.5" y="1" width="12" height="4" rx="1" />
+    <line x1="1.5" y1="3.5" x2="13.5" y2="3.5" />
+    <line x1="7.5" y1="6" x2="7.5" y2="8.5" />
+    <line x1="6" y1="7.25" x2="9" y2="7.25" />
+    <rect x="1.5" y="9.5" width="12" height="4" rx="1" />
+    <line x1="1.5" y1="12" x2="13.5" y2="12" />
+  </Ico>
+);
+
+const IcoTransform = () => (
+  <Ico>
+    <line x1="1" y1="7.5" x2="3.5" y2="7.5" />
+    <polyline points="2,6.5 3.5,7.5 2,8.5" />
+    <rect x="3.5" y="4" width="8" height="7" rx="1.5" />
+    <path d="M8.5 5.5 L6.5 8 L7.5 8 L6 10" />
+    <line x1="11.5" y1="7.5" x2="14" y2="7.5" />
+    <polyline points="13,6.5 14,7.5 13,8.5" />
+  </Ico>
+);
+
 // ─── Button ───────────────────────────────────────────────────────────────────
 
 function Btn({ onClick, active, disabled, color, children }) {
@@ -213,6 +246,9 @@ const NODE_ICONS = {
   functionNode:  <IcoBraces />,
   groupByNode:   <IcoGridFour />,
   commentNode:   <IcoNote />,
+  renameNode:    <IcoRename />,
+  concatNode:    <IcoConcat />,
+  transformNode: <IcoTransform />,
 };
 
 const NODE_KEYS = {
@@ -229,6 +265,9 @@ const NODE_COLORS = {
   functionNode:  'text-emerald-400',
   groupByNode:   'text-sky-400',
   commentNode:   'text-yellow-400',
+  renameNode:    'text-indigo-400',
+  concatNode:    'text-rose-400',
+  transformNode: 'text-orange-400',
 };
 
 // ─── Toolbar ──────────────────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ import { useDrag } from '../../components/DragContext';
 import EditableText from '../../components/EditableText';
 import StageBadge from '../../components/StageBadge';
 import NodeCodeBlock from '../../components/NodeCodeBlock';
-import { DRAG_TYPE } from '../../constants';
+import { DRAG_TYPE, ATTR_TYPES, ATTR_TYPE_META } from '../../constants';
 import config from './config';
 
 const { colors } = config;
@@ -19,6 +19,7 @@ export default function FunctionNode({ id, data }) {
     onAddFunctionOutput,
     onDeleteFunctionOutput,
     onFunctionOutputChange,
+    onFunctionOutputTypeChange,
     onCodeChange, onStageChange,
     trackerHighlight, code, stage,
   } = data;
@@ -175,9 +176,10 @@ export default function FunctionNode({ id, data }) {
                       border: `2px solid ${colors.handleBorder}`, width: 8, height: 8,
                     }}
                   />
+                  <TypeBadge type={inp.attrType || 'string'} />
                   <span
                     className="text-xs flex-1 truncate"
-                    style={{ color: tracked ? '#fcd34d' : undefined, fontWeight: tracked ? 700 : undefined }}
+                    style={{ color: tracked ? '#fcd34d' : '#d1fae5', fontWeight: tracked ? 700 : undefined }}
                   >{inp.attrName}</span>
                   <button
                     onClick={(e) => { stop(e); onDeleteFunctionInput(id, inp.id); }}
@@ -217,6 +219,14 @@ export default function FunctionNode({ id, data }) {
                 background: tracked ? 'rgba(245,158,11,0.08)' : undefined,
               }}
             >
+              <TypeBadge
+                type={output.type}
+                onClick={(e) => {
+                  stop(e);
+                  const idx = ATTR_TYPES.indexOf(output.type);
+                  onFunctionOutputTypeChange(id, output.id, ATTR_TYPES[(idx + 1) % ATTR_TYPES.length]);
+                }}
+              />
               <EditableText
                 value={output.name}
                 onChange={(val) => onFunctionOutputChange(id, output.id, val)}
@@ -256,5 +266,27 @@ export default function FunctionNode({ id, data }) {
       </div>
       {codeOpen && <NodeCodeBlock nodeId={id} code={code} onCodeChange={onCodeChange} borderColor={colors.border} />}
     </div>
+  );
+}
+
+function TypeBadge({ type, onClick }) {
+  const meta = ATTR_TYPE_META[type] || ATTR_TYPE_META.string;
+  return (
+    <span
+      onClick={onClick}
+      onMouseDown={(e) => e.stopPropagation()}
+      title={`Type: ${type}${onClick ? ' — click to change' : ''}`}
+      className={`mr-1.5 rounded select-none flex-shrink-0 ${onClick ? 'cursor-pointer transition-opacity hover:opacity-80' : 'cursor-default'}`}
+      style={{
+        fontSize: 9,
+        lineHeight: '14px',
+        padding: '0 4px',
+        color: meta.color,
+        background: meta.bg,
+        fontFamily: 'monospace',
+      }}
+    >
+      {meta.abbr}
+    </span>
   );
 }
