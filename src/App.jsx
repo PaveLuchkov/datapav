@@ -46,6 +46,9 @@ function extractAllAttrNames(data) {
     ...(data.ops          || []).map((op) => op.args?.col),
     // merge join key pairs
     ...(data.keyPairs     || []).flatMap((p) => [p.left, p.right]),
+    // merge output columns (injected from connected DFs into nodesWithCallbacks)
+    ...(data.leftDF?.attributes  || []).map((a) => a.name),
+    ...(data.rightDF?.attributes || []).map((a) => a.name),
     // filter condition @refs
     ...extractConditionRefs(data),
   ].filter(Boolean);
@@ -153,7 +156,7 @@ export default function App() {
     const q = trackerQuery.trim().toLowerCase();
     if (!trackerOpen || !q) return null;
     const ids = new Set();
-    for (const n of nodes) {
+    for (const n of nodesWithCallbacks) {
       const names = extractAllAttrNames(n.data);
       const hit = trackerWholeWord
         ? names.some((name) => name.toLowerCase() === q)
@@ -161,13 +164,13 @@ export default function App() {
       if (hit) ids.add(n.id);
     }
     return ids;
-  }, [trackerOpen, trackerQuery, trackerWholeWord, nodes]);
+  }, [trackerOpen, trackerQuery, trackerWholeWord, nodesWithCallbacks]);
 
   const trackerSuggestions = useMemo(() => {
     const q = trackerQuery.trim().toLowerCase();
     if (!trackerOpen || !q) return [];
     const counts = new Map();
-    for (const n of nodes) {
+    for (const n of nodesWithCallbacks) {
       const names = new Set(extractAllAttrNames(n.data));
       for (const name of names) {
         const hit = trackerWholeWord
@@ -180,7 +183,7 @@ export default function App() {
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .slice(0, 12)
       .map(([name, count]) => ({ name, count }));
-  }, [trackerOpen, trackerQuery, trackerWholeWord, nodes]);
+  }, [trackerOpen, trackerQuery, trackerWholeWord, nodesWithCallbacks]);
 
   const trackedNodes = useMemo(() => {
     if (!trackerMatchIds) return nodesWithCallbacks;
