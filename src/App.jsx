@@ -199,6 +199,8 @@ export default function App() {
   }, [nodes]);
 
   const handleKeyDown = useCallback((e) => {
+    const inInput = ['INPUT', 'TEXTAREA'].includes(e.target.tagName) || e.target.isContentEditable;
+
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
       e.preventDefault();
       setSearchOpen(true);
@@ -209,8 +211,35 @@ export default function App() {
       setTrackerOpen((v) => { if (v) setTrackerQuery(''); return !v; });
       return;
     }
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      saveToFile();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+      e.preventDefault();
+      loadFromFile();
+      return;
+    }
+
+    if (!inInput && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+      const pos = reactFlowInstance.current
+        ? reactFlowInstance.current.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
+        : { x: 400, y: 300 };
+      switch (e.key.toLowerCase()) {
+        case 'd': e.preventDefault(); addNodeOfType('dataFrameNode', pos.x, pos.y); return;
+        case 'f': e.preventDefault(); addNodeOfType('filterNode',    pos.x, pos.y); return;
+        case 'e': e.preventDefault(); addNodeOfType('functionNode',  pos.x, pos.y); return;
+        case 'g': e.preventDefault(); addNodeOfType('groupByNode',   pos.x, pos.y); return;
+        case 'c': e.preventDefault(); addNodeOfType('commentNode',   pos.x, pos.y); return;
+        case 'l': e.preventDefault(); handleAutoLayout(); return;
+        case 'm': if (selectedDFs.length === 2) { e.preventDefault(); createMerge(selectedDFs); } return;
+        default: break;
+      }
+    }
+
     onKeyDown(e);
-  }, [onKeyDown]);
+  }, [onKeyDown, saveToFile, loadFromFile, addNodeOfType, handleAutoLayout, selectedDFs, createMerge]);
 
   // ── Render ─────────────────────────────────────────────────────────────
 
