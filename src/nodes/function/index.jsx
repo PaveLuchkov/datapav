@@ -17,7 +17,14 @@ export default function FunctionNode({ id, data }) {
     onAddFunctionOutput,
     onDeleteFunctionOutput,
     onFunctionOutputChange,
+    trackerHighlight,
   } = data;
+
+  const isTrackedAttr = (name) => {
+    if (!trackerHighlight?.query) return false;
+    const t = name.toLowerCase();
+    return trackerHighlight.wholeWord ? t === trackerHighlight.query : t.includes(trackerHighlight.query);
+  };
 
   const dragRef = useDrag();
   const [inputsDragOver, setInputsDragOver] = useState(false);
@@ -134,11 +141,16 @@ export default function FunctionNode({ id, data }) {
                   drag columns to add
                 </div>
               )}
-              {group.items.map((inp) => (
+              {group.items.map((inp) => {
+                const tracked = isTrackedAttr(inp.attrName);
+                return (
                 <div
                   key={inp.id}
                   className="relative flex items-center group hover:bg-emerald-900/30 transition-colors"
-                  style={{ paddingLeft: 22, paddingRight: 8, minHeight: ROW_HEIGHT }}
+                  style={{
+                    paddingLeft: 22, paddingRight: 8, minHeight: ROW_HEIGHT,
+                    background: tracked ? 'rgba(245,158,11,0.08)' : undefined,
+                  }}
                 >
                   <Handle
                     type="target" position={Position.Left} id={`${inp.id}-target`}
@@ -148,7 +160,10 @@ export default function FunctionNode({ id, data }) {
                       border: `2px solid ${colors.handleBorder}`, width: 8, height: 8,
                     }}
                   />
-                  <span className="text-emerald-200 text-xs flex-1 truncate">{inp.attrName}</span>
+                  <span
+                    className="text-xs flex-1 truncate"
+                    style={{ color: tracked ? '#fcd34d' : undefined, fontWeight: tracked ? 700 : undefined }}
+                  >{inp.attrName}</span>
                   <button
                     onClick={(e) => { stop(e); onDeleteFunctionInput(id, inp.id); }}
                     onMouseDown={stop}
@@ -157,7 +172,8 @@ export default function FunctionNode({ id, data }) {
                     ×
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ))}
         </div>
@@ -171,7 +187,9 @@ export default function FunctionNode({ id, data }) {
           {outputs.length === 0 && (
             <div className="px-3 py-2 text-xs italic" style={{ color: colors.border }}>No outputs yet</div>
           )}
-          {outputs.map((output) => (
+          {outputs.map((output) => {
+            const tracked = isTrackedAttr(output.name);
+            return (
             <div
               key={output.id}
               draggable
@@ -179,12 +197,15 @@ export default function FunctionNode({ id, data }) {
               onDragStart={(e) => onOutputDragStart(e, output)}
               onDragEnd={onOutputDragEnd}
               className="relative flex items-center group hover:bg-emerald-900/30 transition-colors cursor-grab active:cursor-grabbing"
-              style={{ paddingLeft: 8, paddingRight: 22, minHeight: ROW_HEIGHT }}
+              style={{
+                paddingLeft: 8, paddingRight: 22, minHeight: ROW_HEIGHT,
+                background: tracked ? 'rgba(245,158,11,0.08)' : undefined,
+              }}
             >
               <EditableText
                 value={output.name}
                 onChange={(val) => onFunctionOutputChange(id, output.id, val)}
-                className="text-emerald-100 text-xs flex-1"
+                className={tracked ? 'text-amber-300 text-xs flex-1 font-bold' : 'text-emerald-100 text-xs flex-1'}
                 placeholder="output_col"
                 borderColorClass="border-emerald-400"
               />
@@ -204,7 +225,8 @@ export default function FunctionNode({ id, data }) {
                 }}
               />
             </div>
-          ))}
+            );
+          })}
           <button
             onClick={(e) => { stop(e); onAddFunctionOutput(id); }}
             onMouseDown={stop}

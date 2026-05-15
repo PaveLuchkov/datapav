@@ -124,6 +124,7 @@ export default function App() {
 
   const [trackerOpen, setTrackerOpen] = useState(false);
   const [trackerQuery, setTrackerQuery] = useState('');
+  const [trackerWholeWord, setTrackerWholeWord] = useState(false);
 
   const trackerMatchIds = useMemo(() => {
     const q = trackerQuery.trim().toLowerCase();
@@ -137,10 +138,13 @@ export default function App() {
         ...(n.data.aggregations || []).map((a) => a.outputName),
         ...extractConditionRefs(n.data),
       ].filter(Boolean);
-      if (names.some((name) => name.toLowerCase().includes(q))) ids.add(n.id);
+      const hit = trackerWholeWord
+        ? names.some((name) => name.toLowerCase() === q)
+        : names.some((name) => name.toLowerCase().includes(q));
+      if (hit) ids.add(n.id);
     }
     return ids;
-  }, [trackerOpen, trackerQuery, nodes]);
+  }, [trackerOpen, trackerQuery, trackerWholeWord, nodes]);
 
   const trackerSuggestions = useMemo(() => {
     const q = trackerQuery.trim().toLowerCase();
@@ -155,29 +159,32 @@ export default function App() {
         ...extractConditionRefs(n.data),
       ].filter(Boolean));
       for (const name of names) {
-        if (name.toLowerCase().includes(q)) {
-          counts.set(name, (counts.get(name) || 0) + 1);
-        }
+        const hit = trackerWholeWord
+          ? name.toLowerCase() === q
+          : name.toLowerCase().includes(q);
+        if (hit) counts.set(name, (counts.get(name) || 0) + 1);
       }
     }
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .slice(0, 12)
       .map(([name, count]) => ({ name, count }));
-  }, [trackerOpen, trackerQuery, nodes]);
+  }, [trackerOpen, trackerQuery, trackerWholeWord, nodes]);
 
   const trackedNodes = useMemo(() => {
     if (!trackerMatchIds) return nodesWithCallbacks;
+    const highlight = { query: trackerQuery.trim().toLowerCase(), wholeWord: trackerWholeWord };
     return nodesWithCallbacks.map((n) => {
       const matched = trackerMatchIds.has(n.id);
       return {
         ...n,
+        data: { ...n.data, trackerHighlight: matched ? highlight : null },
         style: matched
           ? { ...n.style, opacity: 1, boxShadow: '0 0 0 2px #f59e0b, 0 0 14px rgba(245,158,11,0.35)', borderRadius: 8, transition: 'all 0.2s ease' }
           : { ...n.style, opacity: 0.12, transition: 'all 0.2s ease' },
       };
     });
-  }, [nodesWithCallbacks, trackerMatchIds]);
+  }, [nodesWithCallbacks, trackerMatchIds, trackerQuery, trackerWholeWord]);
 
   const trackedEdges = useMemo(() => {
     if (!trackerMatchIds) return edges;
@@ -307,10 +314,12 @@ export default function App() {
         {trackerOpen && (
           <AttributeTrackerPanel
             query={trackerQuery}
+            wholeWord={trackerWholeWord}
             matchCount={trackerMatchIds ? trackerMatchIds.size : 0}
             suggestions={trackerSuggestions}
             onQueryChange={setTrackerQuery}
-            onClose={() => { setTrackerOpen(false); setTrackerQuery(''); }}
+            onWholeWordChange={setTrackerWholeWord}
+            onClose={() => { setTrackerOpen(false); setTrackerQuery(''); setTrackerWholeWord(false); }}
           />
         )}
 

@@ -7,7 +7,12 @@ const NODE_ICON = {
   mergeNode:     { symbol: '⋈', color: '#c084fc' },
 };
 
-function buildResults(query, nodes) {
+function matches(text, q, wholeWord) {
+  const t = text.toLowerCase();
+  return wholeWord ? t === q : t.includes(q);
+}
+
+function buildResults(query, nodes, wholeWord) {
   const q = query.toLowerCase().trim();
   const results = [];
 
@@ -19,12 +24,12 @@ function buildResults(query, nodes) {
       continue;
     }
 
-    if (node.data.label?.toLowerCase().includes(q)) {
+    if (node.data.label && matches(node.data.label, q, wholeWord)) {
       results.push({ key: `${node.id}-label`, nodeId: node.id, nodeLabel: node.data.label, nodeType: node.type, icon, matchKind: 'label' });
     }
 
     for (const attr of node.data.attributes || []) {
-      if (attr.name.toLowerCase().includes(q)) {
+      if (matches(attr.name, q, wholeWord)) {
         results.push({
           key: `${node.id}-attr-${attr.id}`,
           nodeId: node.id, nodeLabel: node.data.label, nodeType: node.type, icon,
@@ -34,7 +39,7 @@ function buildResults(query, nodes) {
     }
 
     for (const out of node.data.outputs || []) {
-      if (out.name.toLowerCase().includes(q)) {
+      if (matches(out.name, q, wholeWord)) {
         results.push({
           key: `${node.id}-out-${out.id}`,
           nodeId: node.id, nodeLabel: node.data.label, nodeType: node.type, icon,
@@ -47,9 +52,14 @@ function buildResults(query, nodes) {
   return results.slice(0, 30);
 }
 
-function Highlight({ text, query }) {
+function Highlight({ text, query, wholeWord }) {
   if (!query || !text) return <span>{text}</span>;
   const q = query.toLowerCase();
+  if (wholeWord) {
+    return text.toLowerCase() === q
+      ? <mark style={{ background: 'rgba(96,165,250,0.25)', color: '#93c5fd', borderRadius: 2 }}>{text}</mark>
+      : <span>{text}</span>;
+  }
   const idx = text.toLowerCase().indexOf(q);
   if (idx === -1) return <span>{text}</span>;
   return (
@@ -65,11 +75,12 @@ function Highlight({ text, query }) {
 
 export default function SearchModal({ nodes, onNavigate, onClose }) {
   const [query, setQuery] = useState('');
+  const [wholeWord, setWholeWord] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
-  const results = useMemo(() => buildResults(query, nodes), [query, nodes]);
+  const results = useMemo(() => buildResults(query, nodes, wholeWord), [query, nodes, wholeWord]);
 
   // Reset selection when results change
   useEffect(() => { setSelectedIndex(0); }, [results.length]);
@@ -124,6 +135,18 @@ export default function SearchModal({ nodes, onNavigate, onClose }) {
             placeholder="Search nodes and columns…"
             className="flex-1 bg-transparent outline-none text-sm text-slate-100 placeholder-slate-600"
           />
+          <button
+            onClick={() => setWholeWord((v) => !v)}
+            title="Exact match"
+            className="flex-shrink-0 select-none text-xs px-1.5 py-0.5 rounded font-mono transition-colors"
+            style={{
+              border: `1px solid ${wholeWord ? '#3b82f6' : '#334155'}`,
+              color: wholeWord ? '#60a5fa' : '#475569',
+              background: wholeWord ? 'rgba(59,130,246,0.12)' : 'transparent',
+            }}
+          >
+            W=
+          </button>
           {query && (
             <button
               onClick={() => setQuery('')}
@@ -143,6 +166,7 @@ export default function SearchModal({ nodes, onNavigate, onClose }) {
                 key={r.key}
                 result={r}
                 query={query}
+                wholeWord={wholeWord}
                 selected={i === selectedIndex}
                 onMouseEnter={() => setSelectedIndex(i)}
                 onClick={() => commit(r)}
@@ -168,7 +192,7 @@ export default function SearchModal({ nodes, onNavigate, onClose }) {
   );
 }
 
-function ResultRow({ result, query, selected, onMouseEnter, onClick }) {
+function ResultRow({ result, query, wholeWord, selected, onMouseEnter, onClick }) {
   const typeMeta = result.attrType ? ATTR_TYPE_META[result.attrType] : null;
 
   return (
@@ -194,14 +218,14 @@ function ResultRow({ result, query, selected, onMouseEnter, onClick }) {
       <div className="flex-1 min-w-0 text-xs">
         {result.matchKind === 'label' ? (
           <span className="text-slate-200">
-            <Highlight text={result.nodeLabel} query={query} />
+            <Highlight text={result.nodeLabel} query={query} wholeWord={wholeWord} />
           </span>
         ) : (
           <span className="text-slate-400">
             <span className="text-slate-500">{result.nodeLabel}</span>
             <span className="text-slate-600 mx-1">›</span>
             <span className="text-slate-200">
-              <Highlight text={result.matchText} query={query} />
+              <Highlight text={result.matchText} query={query} wholeWord={wholeWord} />
             </span>
           </span>
         )}

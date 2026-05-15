@@ -14,7 +14,14 @@ export default function DataFrameNode({ id, data }) {
     onLabelChange, onAttributeChange, onAttributeTypeChange,
     onAddAttribute, onDeleteAttribute,
     onAttributeDrop, onReorderAttributes,
+    trackerHighlight,
   } = data;
+
+  const isTrackedAttr = (name) => {
+    if (!trackerHighlight?.query) return false;
+    const t = name.toLowerCase();
+    return trackerHighlight.wholeWord ? t === trackerHighlight.query : t.includes(trackerHighlight.query);
+  };
 
   const dragRef = useDrag();
   const [isDragOver, setIsDragOver] = useState(false);
@@ -147,7 +154,9 @@ export default function DataFrameNode({ id, data }) {
 
         {insertIndex === 0 && <InsertLine />}
 
-        {attributes.map((attr, index) => (
+        {attributes.map((attr, index) => {
+          const tracked = isTrackedAttr(attr.name);
+          return (
           <React.Fragment key={attr.id}>
             <div
               draggable
@@ -157,7 +166,10 @@ export default function DataFrameNode({ id, data }) {
               onDragOver={(e) => onAttrDragOver(e, index)}
               onDrop={onAttrDrop}
               className="relative flex items-center group hover:bg-blue-900/30 transition-colors cursor-grab active:cursor-grabbing"
-              style={{ paddingLeft: 14, paddingRight: 14, minHeight: ATTR_ROW_HEIGHT }}
+              style={{
+                paddingLeft: 14, paddingRight: 14, minHeight: ATTR_ROW_HEIGHT,
+                background: tracked ? 'rgba(245,158,11,0.08)' : undefined,
+              }}
             >
               <Handle
                 type="target" position={Position.Left} id={`${attr.id}-target`}
@@ -176,7 +188,7 @@ export default function DataFrameNode({ id, data }) {
               <EditableText
                 value={attr.name}
                 onChange={(val) => onAttributeChange(id, attr.id, val)}
-                className="text-blue-100 text-xs flex-1"
+                className={tracked ? 'text-amber-300 text-xs flex-1 font-bold' : 'text-blue-100 text-xs flex-1'}
                 placeholder="column"
               />
               <button
@@ -194,7 +206,8 @@ export default function DataFrameNode({ id, data }) {
             </div>
             {insertIndex === index + 1 && <InsertLine />}
           </React.Fragment>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

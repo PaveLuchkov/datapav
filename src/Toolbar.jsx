@@ -6,7 +6,7 @@ function Tip({ label, kbd, children }) {
   return (
     <span className="relative group">
       {children}
-      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+      <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
         <span
           className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] text-gray-100 font-medium whitespace-nowrap"
           style={{ background: 'rgba(8,8,18,0.97)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 24px rgba(0,0,0,0.6)' }}

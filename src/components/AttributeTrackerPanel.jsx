@@ -1,8 +1,13 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 
-function Highlight({ text, query }) {
+function Highlight({ text, query, wholeWord }) {
   if (!query || !text) return <span>{text}</span>;
   const q = query.toLowerCase();
+  if (wholeWord) {
+    return text.toLowerCase() === q
+      ? <mark style={{ background: 'rgba(245,158,11,0.25)', color: '#fbbf24', borderRadius: 2 }}>{text}</mark>
+      : <span>{text}</span>;
+  }
   const idx = text.toLowerCase().indexOf(q);
   if (idx === -1) return <span>{text}</span>;
   return (
@@ -16,7 +21,7 @@ function Highlight({ text, query }) {
   );
 }
 
-export default function AttributeTrackerPanel({ query, matchCount, suggestions, onQueryChange, onClose }) {
+export default function AttributeTrackerPanel({ query, wholeWord, matchCount, suggestions, onQueryChange, onWholeWordChange, onClose }) {
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const [activeIdx, setActiveIdx] = useState(-1);
@@ -89,6 +94,19 @@ export default function AttributeTrackerPanel({ query, matchCount, suggestions, 
           style={{ minWidth: 200 }}
         />
 
+        <button
+          onClick={() => onWholeWordChange((v) => !v)}
+          title="Exact match"
+          className="flex-shrink-0 select-none text-xs px-1.5 py-0.5 rounded font-mono transition-colors"
+          style={{
+            border: `1px solid ${wholeWord ? '#f59e0b' : '#44403c'}`,
+            color: wholeWord ? '#fbbf24' : '#57534e',
+            background: wholeWord ? 'rgba(245,158,11,0.12)' : 'transparent',
+          }}
+        >
+          W=
+        </button>
+
         {query.trim() && (
           <span
             className="text-xs px-2 py-0.5 rounded-full select-none flex-shrink-0 font-mono"
@@ -148,7 +166,7 @@ export default function AttributeTrackerPanel({ query, matchCount, suggestions, 
               }}
             >
               <span className="text-xs text-slate-200 font-mono">
-                <Highlight text={s.name} query={query} />
+                <Highlight text={s.name} query={query} wholeWord={wholeWord} />
               </span>
               <span
                 className="text-xs ml-3 flex-shrink-0 select-none"
