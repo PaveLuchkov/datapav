@@ -71,7 +71,8 @@ export function useDataFrameCallbacks(setNodes, setEdges, pushHistory) {
       id: `e-${attrId}-${newAttr.id}`,
       source: sourceNodeId, sourceHandle: `${attrId}-source`,
       target: targetNodeId, targetHandle: `${newAttr.id}-target`,
-      type: 'smoothstep',
+      type: 'columnEdge',
+      style: { stroke: '#60a5fa', strokeWidth: 1.5 },
     }]);
   }, [setNodes, setEdges, pushHistory]);
 

@@ -25,7 +25,7 @@ const groupByConfig = {
     id: uid(),
     type: 'groupByNode',
     position: { x, y },
-    data: { label: 'my_groupby', inputs: [], groupByInputIds: [], aggregations: [] },
+    data: { label: 'my_groupby', inputs: [], groupByInputIds: [], aggregations: [], code: '', stage: null },
   }),
   menu: { label: 'Group By', icon: '⊞', btnClass: 'bg-sky-900 hover:bg-sky-800 text-sky-100' },
   // column-level handles — covered by global *-source → *-target rule

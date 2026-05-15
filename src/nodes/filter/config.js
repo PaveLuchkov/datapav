@@ -21,7 +21,7 @@ const filterConfig = {
     id: uid(),
     type: 'filterNode',
     position: { x, y },
-    data: { label: 'my_filter', conditions: [{ id: uid(), op: 'WHERE', expr: '' }] },
+    data: { label: 'my_filter', conditions: [{ id: uid(), op: 'WHERE', expr: '' }], code: '', stage: null },
   }),
   menu: { label: 'Filter', icon: 'σ', btnClass: 'bg-orange-900 hover:bg-orange-800 text-orange-100 font-mono' },
   connections: [],

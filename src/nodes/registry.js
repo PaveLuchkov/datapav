@@ -1,19 +1,25 @@
 import React from 'react';
 import NodeErrorBoundary from '../components/NodeErrorBoundary';
 
-import DataFrameNode from './dataframe/index';
-import MergeNode     from './merge/index';
-import FunctionNode  from './function/index';
-import FilterNode    from './filter/index';
-import GroupByNode   from './groupby/index';
-import CommentNode   from './comment/index';
+import DataFrameNode  from './dataframe/index';
+import MergeNode      from './merge/index';
+import FunctionNode   from './function/index';
+import FilterNode     from './filter/index';
+import GroupByNode    from './groupby/index';
+import CommentNode    from './comment/index';
+import RenameNode     from './rename/index';
+import ConcatNode     from './concat/index';
+import TransformNode  from './transform/index';
 
-import dataframeConfig from './dataframe/config';
-import mergeConfig     from './merge/config';
-import functionConfig  from './function/config';
-import filterConfig    from './filter/config';
-import groupByConfig   from './groupby/config';
-import commentConfig   from './comment/config';
+import dataframeConfig  from './dataframe/config';
+import mergeConfig      from './merge/config';
+import functionConfig   from './function/config';
+import filterConfig     from './filter/config';
+import groupByConfig    from './groupby/config';
+import commentConfig    from './comment/config';
+import renameConfig     from './rename/config';
+import concatConfig     from './concat/config';
+import transformConfig  from './transform/config';
 
 // ── Registry ───────────────────────────────────────────────────────────────
 // Each entry: { config, component }
@@ -21,12 +27,15 @@ import commentConfig   from './comment/config';
 // then append one entry here.
 
 export const NODE_REGISTRY = [
-  { config: dataframeConfig, component: DataFrameNode },
-  { config: mergeConfig,     component: MergeNode     },
-  { config: functionConfig,  component: FunctionNode  },
-  { config: filterConfig,    component: FilterNode    },
-  { config: groupByConfig,   component: GroupByNode   },
-  { config: commentConfig,   component: CommentNode   },
+  { config: dataframeConfig,  component: DataFrameNode  },
+  { config: mergeConfig,      component: MergeNode      },
+  { config: functionConfig,   component: FunctionNode   },
+  { config: filterConfig,     component: FilterNode     },
+  { config: groupByConfig,    component: GroupByNode    },
+  { config: commentConfig,    component: CommentNode    },
+  { config: renameConfig,     component: RenameNode     },
+  { config: concatConfig,     component: ConcatNode     },
+  { config: transformConfig,  component: TransformNode  },
 ];
 
 // ── ReactFlow nodeTypes ────────────────────────────────────────────────────

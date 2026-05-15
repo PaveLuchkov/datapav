@@ -2,6 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
 import { useDrag } from '../../components/DragContext';
 import EditableText from '../../components/EditableText';
+import StageBadge from '../../components/StageBadge';
+import NodeCodeBlock from '../../components/NodeCodeBlock';
 import { DRAG_TYPE, ATTR_TYPES, ATTR_TYPE_META } from '../../constants';
 import config from './config';
 
@@ -14,8 +16,11 @@ export default function DataFrameNode({ id, data }) {
     onLabelChange, onAttributeChange, onAttributeTypeChange,
     onAddAttribute, onDeleteAttribute,
     onAttributeDrop, onReorderAttributes,
-    trackerHighlight,
+    onCodeChange, onStageChange,
+    trackerHighlight, code, stage,
   } = data;
+
+  const [codeOpen, setCodeOpen] = useState(false);
 
   const isTrackedAttr = (name) => {
     if (!trackerHighlight?.query) return false;
@@ -131,10 +136,20 @@ export default function DataFrameNode({ id, data }) {
           className="text-white font-semibold text-sm"
           placeholder="DataFrame"
         />
+        <StageBadge nodeId={id} stage={stage} onStageChange={onStageChange} />
+        <button
+          onClick={(e) => { e.stopPropagation(); setCodeOpen((v) => !v); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          title="Toggle code snippet"
+          className="flex-shrink-0 select-none transition-opacity hover:opacity-100 font-mono"
+          style={{ fontSize: 10, color: colors.handleFill, opacity: codeOpen ? 1 : 0.4 }}
+        >
+          {codeOpen ? '[/]' : '</>'}
+        </button>
         <button
           onClick={handleAddAttribute}
           onMouseDown={(e) => e.stopPropagation()}
-          className="ml-2 text-blue-300 hover:text-white text-xs font-bold leading-none w-5 h-5 flex items-center justify-center rounded hover:bg-blue-700 transition-colors"
+          className="ml-1 text-blue-300 hover:text-white text-xs font-bold leading-none w-5 h-5 flex items-center justify-center rounded hover:bg-blue-700 transition-colors"
           title="Add attribute"
         >
           +
@@ -209,6 +224,7 @@ export default function DataFrameNode({ id, data }) {
           );
         })}
       </div>
+      {codeOpen && <NodeCodeBlock nodeId={id} code={code} onCodeChange={onCodeChange} borderColor={colors.border} />}
     </div>
   );
 }

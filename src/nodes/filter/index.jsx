@@ -1,7 +1,9 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Handle, Position } from 'reactflow';
 import EditableText from '../../components/EditableText';
 import HighlightedConditionInput from '../../components/HighlightedConditionInput';
+import StageBadge from '../../components/StageBadge';
+import NodeCodeBlock from '../../components/NodeCodeBlock';
 import config from './config';
 
 const { colors } = config;
@@ -37,9 +39,19 @@ export default function FilterNode({ id, data }) {
     onLabelChange,
     onAddFilterCondition, onDeleteFilterCondition,
     onUpdateFilterExpr, onToggleFilterOp,
+    onCodeChange, onStageChange,
+    trackerHighlight, code, stage,
   } = data;
 
+  const [codeOpen, setCodeOpen] = useState(false);
+
   const stop = (e) => e.stopPropagation();
+
+  const isTrackedAttr = (name) => {
+    if (!trackerHighlight?.query) return false;
+    const t = (name || '').toLowerCase();
+    return trackerHighlight.wholeWord ? t === trackerHighlight.query : t.includes(trackerHighlight.query);
+  };
 
   const conditions = useMemo(() => {
     if (rawConditions?.length) return rawConditions;
@@ -79,6 +91,16 @@ export default function FilterNode({ id, data }) {
           placeholder="filter_name"
           borderColorClass="border-orange-400"
         />
+        <StageBadge nodeId={id} stage={stage} onStageChange={onStageChange} />
+        <button
+          onClick={(e) => { stop(e); setCodeOpen((v) => !v); }}
+          onMouseDown={stop}
+          title="Toggle code snippet"
+          className="flex-shrink-0 select-none transition-opacity hover:opacity-100 font-mono"
+          style={{ fontSize: 10, color: '#fb923c', opacity: codeOpen ? 1 : 0.4 }}
+        >
+          {codeOpen ? '[/]' : '</>'}
+        </button>
       </div>
 
       <div className="px-3 py-2">
@@ -86,8 +108,11 @@ export default function FilterNode({ id, data }) {
           const opStyle = OP_STYLES[cond.op] || OP_STYLES.AND;
           const canToggle = idx > 0;
           const canDelete = conditions.length > 1;
+          const tracked = isTrackedAttr(cond.expr);
           return (
-            <div key={cond.id} className="flex items-start gap-1.5 mb-1.5">
+            <div key={cond.id} className="flex items-start gap-1.5 mb-1.5"
+              style={tracked ? { background: 'rgba(245,158,11,0.08)', borderRadius: 4, marginLeft: -4, paddingLeft: 4 } : undefined}
+            >
               <span
                 onClick={canToggle ? (e) => { stop(e); onToggleFilterOp(id, cond.id); } : undefined}
                 onMouseDown={stop}
@@ -148,6 +173,7 @@ export default function FilterNode({ id, data }) {
           })}
         </div>
       </div>
+      {codeOpen && <NodeCodeBlock nodeId={id} code={code} onCodeChange={onCodeChange} borderColor={colors.border} />}
     </div>
   );
 }

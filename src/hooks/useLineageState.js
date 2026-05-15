@@ -3,12 +3,15 @@ import { useNodesState, useEdgesState, addEdge, MarkerType } from 'reactflow';
 import { getActiveCanvasKey } from '../constants';
 import { uid } from '../utils/uid';
 import { NODE_REGISTRY } from '../nodes/registry';
-import { useDataFrameCallbacks } from '../nodes/dataframe/callbacks';
-import { useMergeCallbacks }     from '../nodes/merge/callbacks';
-import { useFunctionCallbacks }  from '../nodes/function/callbacks';
-import { useFilterCallbacks }    from '../nodes/filter/callbacks';
-import { useGroupByCallbacks }   from '../nodes/groupby/callbacks';
-import { useCommentCallbacks }   from '../nodes/comment/callbacks';
+import { useDataFrameCallbacks }  from '../nodes/dataframe/callbacks';
+import { useMergeCallbacks }      from '../nodes/merge/callbacks';
+import { useFunctionCallbacks }   from '../nodes/function/callbacks';
+import { useFilterCallbacks }     from '../nodes/filter/callbacks';
+import { useGroupByCallbacks }    from '../nodes/groupby/callbacks';
+import { useCommentCallbacks }    from '../nodes/comment/callbacks';
+import { useRenameCallbacks }     from '../nodes/rename/callbacks';
+import { useConcatCallbacks }     from '../nodes/concat/callbacks';
+import { useTransformCallbacks }  from '../nodes/transform/callbacks';
 import dataframeConfig from '../nodes/dataframe/config';
 import mergeConfig     from '../nodes/merge/config';
 
@@ -36,6 +39,12 @@ function cloneNodeData(type, data) {
       aggregations: (data.aggregations || []).map((a) => ({ ...a, id: uid(), inputId: idMap.get(a.inputId) ?? a.inputId })),
     };
   }
+  if (type === 'renameNode') {
+    return { ...data, mappings: (data.mappings || []).map((m) => ({ ...m, id: uid() })) };
+  }
+  if (type === 'transformNode') {
+    return { ...data, ops: (data.ops || []).map((o) => ({ ...o, id: uid() })) };
+  }
   return { ...data };
 }
 
@@ -51,6 +60,42 @@ const DEMO_NODES = [
 const DEMO_EDGES = [];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+function getConnectedAttrs(nodeId, edges, nodes) {
+  const attrs = edges
+    .filter((e) => e.target === nodeId && e.targetHandle === 'df-in')
+    .flatMap((e) => {
+      const src = nodes.find((nd) => nd.id === e.source);
+      if (!src) return [];
+      if (src.type === 'dataFrameNode') return src.data.attributes || [];
+      if (src.type === 'functionNode')  return (src.data.outputs || []).map((o) => ({ id: o.id, name: o.name, type: o.type || 'string' }));
+      if (src.type === 'filterNode')    return src.data.attributes || [];
+      if (src.type === 'renameNode')    return (src.data.mappings || []).filter((m) => m.to).map((m) => ({ id: m.id, name: m.to, type: 'string' }));
+      if (src.type === 'transformNode') return src.data.attributes || [];
+      if (src.type === 'groupByNode') {
+        const keys = (src.data.groupByInputIds || [])
+          .map((gid) => (src.data.inputs || []).find((i) => i.id === gid))
+          .filter(Boolean)
+          .map((i) => ({ name: i.name, type: 'string' }));
+        const aggs = (src.data.aggregations || [])
+          .filter((a) => a.outputName)
+          .map((a) => ({ name: a.outputName, type: 'float' }));
+        return [...keys, ...aggs];
+      }
+      if (src.type === 'mergeNode') {
+        const lEdge = edges.find((ed) => ed.target === src.id && ed.targetHandle === 'left-in');
+        const rEdge = edges.find((ed) => ed.target === src.id && ed.targetHandle === 'right-in');
+        const lSrc  = lEdge ? nodes.find((nd) => nd.id === lEdge.source) : null;
+        const rSrc  = rEdge ? nodes.find((nd) => nd.id === rEdge.source) : null;
+        const lAttrs = lSrc?.data?.attributes || [];
+        const rAttrs = rSrc?.data?.attributes || [];
+        const seen   = new Set(lAttrs.map((a) => a.name));
+        return [...lAttrs, ...rAttrs.filter((a) => !seen.has(a.name))];
+      }
+      return [];
+    });
+  return Array.from(new Map(attrs.map((a) => [a.name, a])).values());
+}
 
 function attachCallbacks(nodes, cbs) {
   return nodes.map((n) => ({ ...n, data: { ...n.data, ...cbs } }));
@@ -129,14 +174,35 @@ export function useLineageState() {
   const ftCbs  = useFilterCallbacks(setNodes, pushHistory);
   const gbCbs  = useGroupByCallbacks(setNodes, setEdges, pushHistory);
   const cmCbs  = useCommentCallbacks(setNodes, pushHistory);
+  const rnCbs  = useRenameCallbacks(setNodes, pushHistory);
+  const ctCbs  = useConcatCallbacks();
+  const trCbs  = useTransformCallbacks(setNodes, pushHistory);
 
-  callbacks.current = { ...dfCbs, ...mgCbs, ...fnCbs, ...ftCbs, ...gbCbs, ...cmCbs };
+  const onLabelChange = useCallback((nodeId, label) => {
+    pushHistory();
+    setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, label } } : n));
+  }, [setNodes, pushHistory]);
+
+  const onCodeChange = useCallback((nodeId, code) => {
+    setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, code } } : n));
+  }, [setNodes]);
+
+  const onStageChange = useCallback((nodeId, stage) => {
+    pushHistory();
+    setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, stage } } : n));
+  }, [setNodes, pushHistory]);
+
+  callbacks.current = {
+    onLabelChange, onCodeChange, onStageChange,
+    ...dfCbs, ...mgCbs, ...fnCbs, ...ftCbs, ...gbCbs, ...cmCbs,
+    ...rnCbs, ...ctCbs, ...trCbs,
+  };
 
   // ── Derived state ─────────────────────────────────────────────────────────
 
   const nodesWithCallbacks = useMemo(() => {
     const enriched = nodes.map((n) => {
-      if (n.type === 'functionNode') {
+      if (n.type === 'functionNode' || n.type === 'concatNode') {
         const connectedDFs = edges
           .filter((e) => e.target === n.id && e.targetHandle === 'df-in')
           .map((e) => {
@@ -146,39 +212,9 @@ export function useLineageState() {
           .filter(Boolean);
         return { ...n, data: { ...n.data, connectedDFs } };
       }
-      if (n.type === 'filterNode') {
-        const connectedAttrs = edges
-          .filter((e) => e.target === n.id && e.targetHandle === 'df-in')
-          .flatMap((e) => {
-            const src = nodes.find((nd) => nd.id === e.source);
-            if (!src) return [];
-            if (src.type === 'dataFrameNode') return src.data.attributes || [];
-            if (src.type === 'functionNode')  return (src.data.outputs || []).map((o) => ({ id: o.id, name: o.name, type: o.type || 'string' }));
-            if (src.type === 'filterNode')    return src.data.attributes || [];
-            if (src.type === 'groupByNode') {
-              const keys = (src.data.groupByInputIds || [])
-                .map((gid) => (src.data.inputs || []).find((i) => i.id === gid))
-                .filter(Boolean)
-                .map((i) => ({ name: i.name, type: 'string' }));
-              const aggs = (src.data.aggregations || [])
-                .filter((a) => a.outputName)
-                .map((a) => ({ name: a.outputName, type: 'float' }));
-              return [...keys, ...aggs];
-            }
-            if (src.type === 'mergeNode') {
-              const lEdge = edges.find((ed) => ed.target === src.id && ed.targetHandle === 'left-in');
-              const rEdge = edges.find((ed) => ed.target === src.id && ed.targetHandle === 'right-in');
-              const lSrc  = lEdge ? nodes.find((nd) => nd.id === lEdge.source) : null;
-              const rSrc  = rEdge ? nodes.find((nd) => nd.id === rEdge.source) : null;
-              const lAttrs = lSrc?.data?.attributes || [];
-              const rAttrs = rSrc?.data?.attributes || [];
-              const seen   = new Set(lAttrs.map((a) => a.name));
-              return [...lAttrs, ...rAttrs.filter((a) => !seen.has(a.name))];
-            }
-            return [];
-          });
-        const unique = Array.from(new Map(connectedAttrs.map((a) => [a.name, a])).values());
-        return { ...n, data: { ...n.data, connectedAttrs: unique } };
+      if (n.type === 'filterNode' || n.type === 'renameNode' || n.type === 'transformNode') {
+        const connectedAttrs = getConnectedAttrs(n.id, edges, nodes);
+        return { ...n, data: { ...n.data, connectedAttrs } };
       }
       if (n.type === 'mergeNode') {
         const leftEdge  = edges.find((e) => e.target === n.id && e.targetHandle === 'left-in');
@@ -247,10 +283,13 @@ export function useLineageState() {
   const onConnect = useCallback((params) => {
     pushHistory();
     const color = OPERATOR_EDGE_COLOR[params.sourceHandle];
+    const isColumnEdge = params.sourceHandle?.endsWith('-source');
     setEdges((eds) => addEdge(
       color
         ? { ...params, type: 'smoothstep', style: { stroke: color, strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color } }
-        : { ...params, type: 'smoothstep', style: { stroke: '#60a5fa', strokeWidth: 2 } },
+        : isColumnEdge
+          ? { ...params, type: 'columnEdge', style: { stroke: '#60a5fa', strokeWidth: 1.5 } }
+          : { ...params, type: 'smoothstep', style: { stroke: '#60a5fa', strokeWidth: 2 } },
       eds
     ));
   // eslint-disable-next-line react-hooks/exhaustive-deps

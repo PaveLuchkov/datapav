@@ -2,6 +2,8 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { Handle, Position } from 'reactflow';
 import { useDrag } from '../../components/DragContext';
 import EditableText from '../../components/EditableText';
+import StageBadge from '../../components/StageBadge';
+import NodeCodeBlock from '../../components/NodeCodeBlock';
 import { DRAG_TYPE, ATTR_TYPE_META } from '../../constants';
 import config, { AGG_FUNCTIONS } from './config';
 
@@ -14,7 +16,17 @@ export default function GroupByNode({ id, data }) {
     onLabelChange,
     onGroupByInputDrop, onDeleteGroupByInput, onToggleGroupByKey,
     onAddGroupByAgg, onDeleteGroupByAgg, onUpdateGroupByAgg,
+    onCodeChange, onStageChange,
+    trackerHighlight, code, stage,
   } = data;
+
+  const isTrackedAttr = (name) => {
+    if (!trackerHighlight?.query) return false;
+    const t = (name || '').toLowerCase();
+    return trackerHighlight.wholeWord ? t === trackerHighlight.query : t.includes(trackerHighlight.query);
+  };
+
+  const [codeOpen, setCodeOpen] = useState(false);
 
   const dragRef = useDrag();
   const [dropOver, setDropOver] = useState(false);
@@ -107,6 +119,16 @@ export default function GroupByNode({ id, data }) {
           placeholder="groupby_name"
           borderColorClass="border-sky-400"
         />
+        <StageBadge nodeId={id} stage={stage} onStageChange={onStageChange} />
+        <button
+          onClick={(e) => { e.stopPropagation(); setCodeOpen((v) => !v); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          title="Toggle code snippet"
+          className="flex-shrink-0 select-none transition-opacity hover:opacity-100 font-mono"
+          style={{ fontSize: 10, color: colors.handleFill, opacity: codeOpen ? 1 : 0.4 }}
+        >
+          {codeOpen ? '[/]' : '</>'}
+        </button>
       </div>
 
       <div className="flex" style={{ minHeight: 80 }}>
@@ -146,11 +168,12 @@ export default function GroupByNode({ id, data }) {
               {groupItems.map((inp) => {
                 const meta = ATTR_TYPE_META[inp.attrType] || ATTR_TYPE_META.string;
                 const isKey = safeKeys.includes(inp.id);
+                const tracked = isTrackedAttr(inp.attrName);
                 return (
                   <div
                     key={inp.id}
                     className="relative flex items-center group hover:bg-sky-900/20 transition-colors"
-                    style={{ paddingLeft: 22, paddingRight: 8, minHeight: ROW_HEIGHT }}
+                    style={{ paddingLeft: 22, paddingRight: 8, minHeight: ROW_HEIGHT, background: tracked ? 'rgba(245,158,11,0.08)' : undefined }}
                   >
                     <Handle
                       type="target" position={Position.Left} id={`${inp.id}-target`}
@@ -170,7 +193,7 @@ export default function GroupByNode({ id, data }) {
                     >
                       {isKey ? '⊞' : '○'}
                     </button>
-                    <span className="text-xs flex-1 truncate" style={{ color: isKey ? '#7dd3fc' : '#4a7a99' }}>
+                    <span className="text-xs flex-1 truncate" style={{ color: tracked ? '#fcd34d' : (isKey ? '#7dd3fc' : '#4a7a99'), fontWeight: tracked ? 700 : undefined }}>
                       {inp.attrName}
                     </span>
                     <button
@@ -203,6 +226,7 @@ export default function GroupByNode({ id, data }) {
           )}
           {keyInputs.map((inp) => {
             const outId = `gbout-${inp.id}`;
+            const tracked = isTrackedAttr(inp.attrName);
             return (
               <div
                 key={inp.id}
@@ -211,9 +235,9 @@ export default function GroupByNode({ id, data }) {
                 onDragStart={(e) => onOutputDragStart(e, outId, inp.attrName)}
                 onDragEnd={onOutputDragEnd}
                 className="relative flex items-center group hover:bg-sky-900/20 transition-colors cursor-grab active:cursor-grabbing"
-                style={{ paddingLeft: 8, paddingRight: 22, minHeight: ROW_HEIGHT }}
+                style={{ paddingLeft: 8, paddingRight: 22, minHeight: ROW_HEIGHT, background: tracked ? 'rgba(245,158,11,0.08)' : undefined }}
               >
-                <span className="text-xs flex-1 truncate" style={{ color: '#7dd3fc' }}>{inp.attrName}</span>
+                <span className="text-xs flex-1 truncate" style={{ color: tracked ? '#fcd34d' : '#7dd3fc', fontWeight: tracked ? 700 : undefined }}>{inp.attrName}</span>
                 <Handle
                   type="source" position={Position.Right} id={`${outId}-source`}
                   style={{
@@ -239,11 +263,12 @@ export default function GroupByNode({ id, data }) {
           {safeAggs.map((agg) => {
             const outId = `aggout-${agg.id}`;
             const outName = agg.outputName || `${agg.func || 'agg'}`;
+            const trackedAgg = isTrackedAttr(outName) || isTrackedAttr(inputOptions.find((inp) => inp.id === agg.inputId)?.attrName);
             return (
               <div
                 key={agg.id}
                 className="relative flex items-center group hover:bg-sky-900/20 transition-colors"
-                style={{ paddingLeft: 8, paddingRight: 22, minHeight: ROW_HEIGHT }}
+                style={{ paddingLeft: 8, paddingRight: 22, minHeight: ROW_HEIGHT, background: trackedAgg ? 'rgba(245,158,11,0.08)' : undefined }}
               >
                 {/* Column selector */}
                 <select
@@ -326,6 +351,7 @@ export default function GroupByNode({ id, data }) {
           </button>
         </div>
       </div>
+      {codeOpen && <NodeCodeBlock nodeId={id} code={code} onCodeChange={onCodeChange} borderColor={colors.border} />}
     </div>
   );
 }

@@ -21,7 +21,7 @@ const functionConfig = {
     id: uid(),
     type: 'functionNode',
     position: { x, y },
-    data: { label: 'my_function', inputs: [], outputs: [] },
+    data: { label: 'my_function', inputs: [], outputs: [], code: '', stage: null },
   }),
   menu: { label: 'Function', icon: 'ƒ', btnClass: 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100 font-mono' },
   connections: [],

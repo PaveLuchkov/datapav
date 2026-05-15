@@ -2,6 +2,8 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { Handle, Position } from 'reactflow';
 import { useDrag } from '../../components/DragContext';
 import EditableText from '../../components/EditableText';
+import StageBadge from '../../components/StageBadge';
+import NodeCodeBlock from '../../components/NodeCodeBlock';
 import { DRAG_TYPE } from '../../constants';
 import config from './config';
 
@@ -17,8 +19,11 @@ export default function FunctionNode({ id, data }) {
     onAddFunctionOutput,
     onDeleteFunctionOutput,
     onFunctionOutputChange,
-    trackerHighlight,
+    onCodeChange, onStageChange,
+    trackerHighlight, code, stage,
   } = data;
+
+  const [codeOpen, setCodeOpen] = useState(false);
 
   const isTrackedAttr = (name) => {
     if (!trackerHighlight?.query) return false;
@@ -105,6 +110,16 @@ export default function FunctionNode({ id, data }) {
           placeholder="function_name"
           borderColorClass="border-emerald-400"
         />
+        <StageBadge nodeId={id} stage={stage} onStageChange={onStageChange} />
+        <button
+          onClick={(e) => { e.stopPropagation(); setCodeOpen((v) => !v); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          title="Toggle code snippet"
+          className="flex-shrink-0 select-none transition-opacity hover:opacity-100 font-mono"
+          style={{ fontSize: 10, color: colors.handleFill, opacity: codeOpen ? 1 : 0.4 }}
+        >
+          {codeOpen ? '[/]' : '</>'}
+        </button>
       </div>
 
       <div className="flex" style={{ minHeight: 72 }}>
@@ -239,6 +254,7 @@ export default function FunctionNode({ id, data }) {
           </button>
         </div>
       </div>
+      {codeOpen && <NodeCodeBlock nodeId={id} code={code} onCodeChange={onCodeChange} borderColor={colors.border} />}
     </div>
   );
 }

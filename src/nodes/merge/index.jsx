@@ -1,6 +1,8 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Handle, Position } from 'reactflow';
 import { useDrag } from '../../components/DragContext';
+import StageBadge from '../../components/StageBadge';
+import NodeCodeBlock from '../../components/NodeCodeBlock';
 import { DRAG_TYPE, JOIN_TYPES, JOIN_ACTIVE_STYLES } from '../../constants';
 import config from './config';
 
@@ -11,8 +13,17 @@ export default function MergeNode({ id, data }) {
   const {
     joinType, keyPairs, leftDF, rightDF,
     onJoinTypeChange, onAddKey, onRemoveKey, onUpdateKey,
+    onCodeChange, onStageChange,
+    trackerHighlight, code, stage,
   } = data;
 
+  const isTrackedAttr = (name) => {
+    if (!trackerHighlight?.query) return false;
+    const t = (name || '').toLowerCase();
+    return trackerHighlight.wholeWord ? t === trackerHighlight.query : t.includes(trackerHighlight.query);
+  };
+
+  const [codeOpen, setCodeOpen] = useState(false);
   const dragRef = useDrag();
   const stop = (e) => e.stopPropagation();
 
@@ -55,7 +66,17 @@ export default function MergeNode({ id, data }) {
         style={{ background: colors.header }}
       >
         <span className="text-purple-200 font-bold text-sm tracking-widest select-none">⋈ MERGE</span>
-        <div className="flex gap-0.5">
+        <StageBadge nodeId={id} stage={stage} onStageChange={onStageChange} />
+        <button
+          onClick={(e) => { stop(e); setCodeOpen((v) => !v); }}
+          onMouseDown={stop}
+          title="Toggle code snippet"
+          className="flex-shrink-0 select-none transition-opacity hover:opacity-100 font-mono"
+          style={{ fontSize: 10, color: '#a78bfa', opacity: codeOpen ? 1 : 0.4 }}
+        >
+          {codeOpen ? '[/]' : '</>'}
+        </button>
+        <div className="flex gap-0.5 ml-auto">
           {JOIN_TYPES.map((jt) => {
             const active = joinType === jt;
             return (
@@ -97,8 +118,12 @@ export default function MergeNode({ id, data }) {
             {safeKeyPairs.length === 0 && (
               <div className="text-xs italic px-1 mb-1" style={{ color: '#4c1d95' }}>No keys — cross join</div>
             )}
-            {safeKeyPairs.map((pair, i) => (
-              <div key={i} className="flex items-center gap-1 mb-1.5">
+            {safeKeyPairs.map((pair, i) => {
+              const trackedPair = isTrackedAttr(pair.left) || isTrackedAttr(pair.right);
+              return (
+              <div key={i} className="flex items-center gap-1 mb-1.5"
+                style={trackedPair ? { background: 'rgba(245,158,11,0.08)', borderRadius: 4 } : undefined}
+              >
                 <select
                   value={pair.left}
                   onChange={(e) => { stop(e); onUpdateKey(id, i, 'left', e.target.value); }}
@@ -131,7 +156,8 @@ export default function MergeNode({ id, data }) {
                   ×
                 </button>
               </div>
-            ))}
+              );
+            })}
             <button
               onClick={(e) => { stop(e); onAddKey(id); }}
               onMouseDown={stop}
@@ -151,18 +177,19 @@ export default function MergeNode({ id, data }) {
             <div className="px-3 text-xs italic" style={{ color: '#4c1d95' }}>Connect DFs to see columns</div>
           )}
           {leftCols.map((attr) => (
-            <OutputRow key={`L-${attr.id}`} side="L" attr={attr} onDragStart={onOutputDragStart} onDragEnd={onOutputDragEnd} />
+            <OutputRow key={`L-${attr.id}`} side="L" attr={attr} onDragStart={onOutputDragStart} onDragEnd={onOutputDragEnd} tracked={isTrackedAttr(attr.name)} />
           ))}
           {rightCols.map((attr) => (
-            <OutputRow key={`R-${attr.id}`} side="R" attr={attr} onDragStart={onOutputDragStart} onDragEnd={onOutputDragEnd} />
+            <OutputRow key={`R-${attr.id}`} side="R" attr={attr} onDragStart={onOutputDragStart} onDragEnd={onOutputDragEnd} tracked={isTrackedAttr(attr.name)} />
           ))}
         </div>
       </div>
+      {codeOpen && <NodeCodeBlock nodeId={id} code={code} onCodeChange={onCodeChange} borderColor={colors.border} />}
     </div>
   );
 }
 
-function OutputRow({ side, attr, onDragStart, onDragEnd }) {
+function OutputRow({ side, attr, onDragStart, onDragEnd, tracked }) {
   const sideColor = side === 'L' ? '#7c3aed' : '#9333ea';
   return (
     <div
@@ -171,12 +198,12 @@ function OutputRow({ side, attr, onDragStart, onDragEnd }) {
       onDragStart={(e) => onDragStart(e, side, attr)}
       onDragEnd={onDragEnd}
       className="relative flex items-center group hover:bg-purple-900/30 transition-colors cursor-grab active:cursor-grabbing"
-      style={{ paddingLeft: 8, paddingRight: 22, minHeight: ROW_HEIGHT }}
+      style={{ paddingLeft: 8, paddingRight: 22, minHeight: ROW_HEIGHT, background: tracked ? 'rgba(245,158,11,0.08)' : undefined }}
     >
       <span className="text-xs font-bold mr-1.5 flex-shrink-0 select-none" style={{ color: sideColor, fontSize: 9, lineHeight: 1 }}>
         {side}
       </span>
-      <span className="text-xs flex-1 truncate" style={{ color: '#e9d5ff' }}>{attr.name}</span>
+      <span className="text-xs flex-1 truncate" style={{ color: tracked ? '#fcd34d' : '#e9d5ff', fontWeight: tracked ? 700 : undefined }}>{attr.name}</span>
       <Handle
         type="source" position={Position.Right}
         id={`mout-${side}-${attr.id}-source`}

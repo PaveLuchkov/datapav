@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { uid } from './utils/uid';
 import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
+import ColumnEdge from './components/ColumnEdge';
 import 'reactflow/dist/style.css';
 
 import Toolbar from './Toolbar';
@@ -20,12 +21,34 @@ import { useContextMenu } from './hooks/useContextMenu';
 import { useAutoLayout } from './hooks/useAutoLayout';
 import { nodeTypes, isValidConnection, getMinimapColor, ADDABLE_NODES } from './nodes/registry';
 
+const edgeTypes = { columnEdge: ColumnEdge };
+
 function extractConditionRefs(data) {
   const exprs = [
     ...(data.conditions || []).map((c) => c.expr || ''),
     data.condition || '',
   ];
   return exprs.flatMap((expr) => (expr.match(/@(\w+)/g) || []).map((m) => m.slice(1)));
+}
+
+function extractAllAttrNames(data) {
+  return [
+    // dataframe
+    ...(data.attributes   || []).map((a) => a.name),
+    // function node inputs/outputs (use .name)
+    ...(data.inputs       || []).map((i) => i.name || i.attrName),
+    ...(data.outputs      || []).map((o) => o.name),
+    // groupby aggregations
+    ...(data.aggregations || []).map((a) => a.outputName),
+    // rename: from + to fields
+    ...(data.mappings     || []).flatMap((m) => [m.from, m.to]),
+    // transform: column args
+    ...(data.ops          || []).map((op) => op.args?.col),
+    // merge join key pairs
+    ...(data.keyPairs     || []).flatMap((p) => [p.left, p.right]),
+    // filter condition @refs
+    ...extractConditionRefs(data),
+  ].filter(Boolean);
 }
 
 export default function App() {
@@ -131,13 +154,7 @@ export default function App() {
     if (!trackerOpen || !q) return null;
     const ids = new Set();
     for (const n of nodes) {
-      const names = [
-        ...(n.data.attributes   || []).map((a) => a.name),
-        ...(n.data.inputs       || []).map((i) => i.name),
-        ...(n.data.outputs      || []).map((o) => o.name),
-        ...(n.data.aggregations || []).map((a) => a.outputName),
-        ...extractConditionRefs(n.data),
-      ].filter(Boolean);
+      const names = extractAllAttrNames(n.data);
       const hit = trackerWholeWord
         ? names.some((name) => name.toLowerCase() === q)
         : names.some((name) => name.toLowerCase().includes(q));
@@ -151,13 +168,7 @@ export default function App() {
     if (!trackerOpen || !q) return [];
     const counts = new Map();
     for (const n of nodes) {
-      const names = new Set([
-        ...(n.data.attributes   || []).map((a) => a.name),
-        ...(n.data.inputs       || []).map((i) => i.name),
-        ...(n.data.outputs      || []).map((o) => o.name),
-        ...(n.data.aggregations || []).map((a) => a.outputName),
-        ...extractConditionRefs(n.data),
-      ].filter(Boolean));
+      const names = new Set(extractAllAttrNames(n.data));
       for (const name of names) {
         const hit = trackerWholeWord
           ? name.toLowerCase() === q
@@ -195,6 +206,25 @@ export default function App() {
         : { ...e, style: { ...e.style, opacity: 0.06, transition: 'opacity 0.2s ease' } };
     });
   }, [edges, trackerMatchIds]);
+
+  const displayEdges = useMemo(() => {
+    const base = trackerMatchIds ? trackedEdges : edges;
+    return base.map((e) => {
+      if (e.type !== 'columnEdge') return e;
+      const attrId = e.sourceHandle?.slice(0, -7); // strip '-source'
+      if (!attrId) return e;
+      const src = nodes.find((n) => n.id === e.source);
+      if (!src) return e;
+      const name =
+        (src.data.attributes || []).find((a) => a.id === attrId)?.name ||
+        (src.data.outputs    || []).find((o) => o.id === attrId)?.name ||
+        (src.data.mappings   || []).find((m) => m.id === attrId)?.to   ||
+        (() => { const m = attrId.match(/^gbout-(.+)$/); return m ? (src.data.inputs||[]).find((i) => i.id === m[1])?.attrName : null; })() ||
+        (() => { const m = attrId.match(/^mout-[LR]-(.+)$/); if (!m) return null; return [...(src.data.leftDF?.attributes||[]),...(src.data.rightDF?.attributes||[])].find((a) => a.id === m[1])?.name; })() ||
+        null;
+      return name ? { ...e, data: { ...e.data, label: name } } : e;
+    });
+  }, [trackedEdges, edges, trackerMatchIds, nodes]);
 
   // ── Search ─────────────────────────────────────────────────────────────
 
@@ -264,8 +294,9 @@ export default function App() {
         <div ref={reactFlowWrapper} className="flex-1 min-h-0 relative">
           <ReactFlow
             nodes={trackedNodes}
-            edges={trackedEdges}
+            edges={displayEdges}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}

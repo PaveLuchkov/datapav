@@ -21,6 +21,8 @@ const dataframeConfig = {
     data: {
       label: 'new_dataframe',
       attributes: [{ id: uid(), name: 'column_1', type: 'string' }],
+      code: '',
+      stage: null,
       ...dataOverrides,
     },
   }),
