@@ -229,6 +229,44 @@ export function useLineageState() {
     if (changed) setNodes(updated);
   }, [nodes, edges, setNodes]);
 
+  // Refresh attrType in GroupByNode and FunctionNode inputs when upstream schema changes.
+  // These nodes freeze attrType at drag time — this keeps them live without requiring re-drag.
+  useEffect(() => {
+    let anyChanged = false;
+    const updated = nodes.map((n) => {
+      if (n.type !== 'groupByNode' && n.type !== 'functionNode') return n;
+      let nodeChanged = false;
+
+      const refreshedInputs = (n.data.inputs || []).map((inp) => {
+        const srcNode = nodes.find((s) => s.id === inp.sourceNodeId);
+        if (!srcNode) return inp;
+        const srcAttrs = computeNodeOutputAttributes(srcNode, edges, nodes);
+        const liveAttr = srcAttrs.find((a) => a.name === inp.attrName);
+        if (!liveAttr || liveAttr.type === inp.attrType) return inp;
+        nodeChanged = true;
+        return { ...inp, attrType: liveAttr.type };
+      });
+
+      if (n.type === 'functionNode') {
+        const refreshedOutputs = (n.data.outputs || []).map((o) => {
+          if (!o.fromInputId) return o;
+          const inp = refreshedInputs.find((i) => i.id === o.fromInputId);
+          if (!inp || inp.attrType === o.type) return o;
+          nodeChanged = true;
+          return { ...o, type: inp.attrType };
+        });
+        if (!nodeChanged) return n;
+        anyChanged = true;
+        return { ...n, data: { ...n.data, inputs: refreshedInputs, outputs: refreshedOutputs } };
+      }
+
+      if (!nodeChanged) return n;
+      anyChanged = true;
+      return { ...n, data: { ...n.data, inputs: refreshedInputs } };
+    });
+    if (anyChanged) setNodes(updated);
+  }, [nodes, edges, setNodes]);
+
   // If a companion DF is manually deleted, clear the stale companionId on its operator.
   useEffect(() => {
     const companionIds = new Set(nodes.filter((n) => n.data?._companionOf).map((n) => n.id));
