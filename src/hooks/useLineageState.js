@@ -3,6 +3,7 @@ import { useNodesState, useEdgesState, addEdge, MarkerType } from 'reactflow';
 import { getActiveCanvasKey } from '../constants';
 import { uid } from '../utils/uid';
 import { NODE_REGISTRY } from '../nodes/registry';
+import { computeNodeOutputAttributes, getUpstreamAttrs } from '../utils/nodeOutputAttrs';
 import { useDataFrameCallbacks }  from '../nodes/dataframe/callbacks';
 import { useMergeCallbacks }      from '../nodes/merge/callbacks';
 import { useFunctionCallbacks }   from '../nodes/function/callbacks';
@@ -60,42 +61,6 @@ const DEMO_NODES = [
 const DEMO_EDGES = [];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-function getConnectedAttrs(nodeId, edges, nodes) {
-  const attrs = edges
-    .filter((e) => e.target === nodeId && e.targetHandle === 'df-in')
-    .flatMap((e) => {
-      const src = nodes.find((nd) => nd.id === e.source);
-      if (!src) return [];
-      if (src.type === 'dataFrameNode') return src.data.attributes || [];
-      if (src.type === 'functionNode')  return (src.data.outputs || []).map((o) => ({ id: o.id, name: o.name, type: o.type || 'string' }));
-      if (src.type === 'filterNode')    return src.data.attributes || [];
-      if (src.type === 'renameNode')    return (src.data.mappings || []).filter((m) => m.to).map((m) => ({ id: m.id, name: m.to, type: 'string' }));
-      if (src.type === 'transformNode') return src.data.attributes || [];
-      if (src.type === 'groupByNode') {
-        const keys = (src.data.groupByInputIds || [])
-          .map((gid) => (src.data.inputs || []).find((i) => i.id === gid))
-          .filter(Boolean)
-          .map((i) => ({ name: i.name, type: 'string' }));
-        const aggs = (src.data.aggregations || [])
-          .filter((a) => a.outputName)
-          .map((a) => ({ name: a.outputName, type: 'float' }));
-        return [...keys, ...aggs];
-      }
-      if (src.type === 'mergeNode') {
-        const lEdge = edges.find((ed) => ed.target === src.id && ed.targetHandle === 'left-in');
-        const rEdge = edges.find((ed) => ed.target === src.id && ed.targetHandle === 'right-in');
-        const lSrc  = lEdge ? nodes.find((nd) => nd.id === lEdge.source) : null;
-        const rSrc  = rEdge ? nodes.find((nd) => nd.id === rEdge.source) : null;
-        const lAttrs = lSrc?.data?.attributes || [];
-        const rAttrs = rSrc?.data?.attributes || [];
-        const seen   = new Set(lAttrs.map((a) => a.name));
-        return [...lAttrs, ...rAttrs.filter((a) => !seen.has(a.name))];
-      }
-      return [];
-    });
-  return Array.from(new Map(attrs.map((a) => [a.name, a])).values());
-}
 
 function attachCallbacks(nodes, cbs) {
   return nodes.map((n) => ({ ...n, data: { ...n.data, ...cbs } }));
@@ -213,7 +178,7 @@ export function useLineageState() {
         return { ...n, data: { ...n.data, connectedDFs } };
       }
       if (n.type === 'filterNode' || n.type === 'renameNode' || n.type === 'transformNode') {
-        const connectedAttrs = getConnectedAttrs(n.id, edges, nodes);
+        const connectedAttrs = getUpstreamAttrs(n.id, edges, nodes);
         return { ...n, data: { ...n.data, connectedAttrs } };
       }
       if (n.type === 'mergeNode') {
@@ -225,8 +190,8 @@ export function useLineageState() {
           ...n,
           data: {
             ...n.data,
-            leftDF:  leftNode  ? { id: leftNode.id,  label: leftNode.data.label,  attributes: leftNode.data.attributes  || [] } : null,
-            rightDF: rightNode ? { id: rightNode.id, label: rightNode.data.label, attributes: rightNode.data.attributes || [] } : null,
+            leftDF:  leftNode  ? { id: leftNode.id,  label: leftNode.data.label,  attributes: computeNodeOutputAttributes(leftNode,  edges, nodes) } : null,
+            rightDF: rightNode ? { id: rightNode.id, label: rightNode.data.label, attributes: computeNodeOutputAttributes(rightNode, edges, nodes) } : null,
           },
         };
       }
@@ -236,36 +201,22 @@ export function useLineageState() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges]);
 
-  // Sync result-DF attributes from their connected merge node's output columns.
-  // Runs after every nodes/edges change; handles chained merges across renders.
+  // Sync result-DF attributes whenever a DataFrameNode is connected (via df-in)
+  // to any operator node. The operator's output is the single source of truth.
+  // Handles chained merges, groupby outputs, function outputs, etc.
   useEffect(() => {
-    const mergeOutputAttrs = {};
-    for (const n of nodes) {
-      if (n.type !== 'mergeNode') continue;
-      const leftEdge  = edges.find((e) => e.target === n.id && e.targetHandle === 'left-in');
-      const rightEdge = edges.find((e) => e.target === n.id && e.targetHandle === 'right-in');
-      const leftNode  = leftEdge  ? nodes.find((nd) => nd.id === leftEdge.source)  : null;
-      const rightNode = rightEdge ? nodes.find((nd) => nd.id === rightEdge.source) : null;
-      const seen = new Set();
-      mergeOutputAttrs[n.id] = [
-        ...(leftNode?.data?.attributes  || []),
-        ...(rightNode?.data?.attributes || []),
-      ].filter((a) => seen.has(a.name) ? false : seen.add(a.name));
-    }
-
     let changed = false;
     const updated = nodes.map((n) => {
       if (n.type !== 'dataFrameNode') return n;
       const inEdge = edges.find((e) => e.target === n.id && e.targetHandle === 'df-in' && e.sourceHandle === 'df-out');
       if (!inEdge) return n;
       const src = nodes.find((nd) => nd.id === inEdge.source);
-      if (src?.type !== 'mergeNode') return n;
-      const merged = mergeOutputAttrs[src.id] || [];
-      if (JSON.stringify(n.data.attributes) === JSON.stringify(merged)) return n;
+      if (!src || src.type === 'dataFrameNode') return n;
+      const computed = computeNodeOutputAttributes(src, edges, nodes);
+      if (JSON.stringify(n.data.attributes) === JSON.stringify(computed)) return n;
       changed = true;
-      return { ...n, data: { ...n.data, attributes: merged } };
+      return { ...n, data: { ...n.data, attributes: computed } };
     });
-
     if (changed) setNodes(updated);
   }, [nodes, edges, setNodes]);
 

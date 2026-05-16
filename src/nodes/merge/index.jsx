@@ -3,7 +3,7 @@ import { Handle, Position } from 'reactflow';
 import { useDrag } from '../../components/DragContext';
 import StageBadge from '../../components/StageBadge';
 import NodeCodeBlock from '../../components/NodeCodeBlock';
-import { DRAG_TYPE, JOIN_TYPES, JOIN_ACTIVE_STYLES } from '../../constants';
+import { DRAG_TYPE, JOIN_TYPES, JOIN_ACTIVE_STYLES, ATTR_TYPE_META } from '../../constants';
 import config from './config';
 
 const { colors } = config;
@@ -34,7 +34,7 @@ export default function MergeNode({ id, data }) {
   const onOutputDragStart = useCallback((e, side, attr) => {
     e.stopPropagation();
     const attrId = `mout-${side}-${attr.id}`;
-    const drag = { sourceNodeId: id, attrId, attrName: attr.name, sourceNodeLabel: '⋈ merge' };
+    const drag = { sourceNodeId: id, attrId, attrName: attr.name, attrType: attr.type || 'string', sourceNodeLabel: '⋈ merge' };
     dragRef.current = drag;
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(drag));
@@ -189,6 +189,18 @@ export default function MergeNode({ id, data }) {
   );
 }
 
+function TypeBadge({ type }) {
+  const meta = ATTR_TYPE_META[type] || ATTR_TYPE_META.string;
+  return (
+    <span
+      className="mr-1 rounded flex-shrink-0 select-none"
+      style={{ fontSize: 9, lineHeight: '14px', padding: '0 4px', color: meta.color, background: meta.bg, fontFamily: 'monospace' }}
+    >
+      {meta.abbr}
+    </span>
+  );
+}
+
 function OutputRow({ side, attr, onDragStart, onDragEnd, tracked }) {
   const sideColor = side === 'L' ? '#7c3aed' : '#9333ea';
   return (
@@ -203,6 +215,7 @@ function OutputRow({ side, attr, onDragStart, onDragEnd, tracked }) {
       <span className="text-xs font-bold mr-1.5 flex-shrink-0 select-none" style={{ color: sideColor, fontSize: 9, lineHeight: 1 }}>
         {side}
       </span>
+      <TypeBadge type={attr.type || 'string'} />
       <span className="text-xs flex-1 truncate" style={{ color: tracked ? '#fcd34d' : '#e9d5ff', fontWeight: tracked ? 700 : undefined }}>{attr.name}</span>
       <Handle
         type="source" position={Position.Right}

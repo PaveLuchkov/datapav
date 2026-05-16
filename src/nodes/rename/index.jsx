@@ -33,11 +33,12 @@ export default function RenameNode({ id, data }) {
   const onRowDragStart = useCallback((e, mapping) => {
     if (!mapping.to) return;
     e.stopPropagation();
-    const drag = { sourceNodeId: id, attrId: mapping.id, attrName: mapping.to, attrType: 'string', sourceNodeLabel: label };
+    const srcAttr = connectedAttrs.find((a) => a.name === mapping.from);
+    const drag = { sourceNodeId: id, attrId: mapping.id, attrName: mapping.to, attrType: srcAttr?.type || 'string', sourceNodeLabel: label };
     dragRef.current = drag;
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(drag));
-  }, [id, label, dragRef]);
+  }, [id, label, connectedAttrs, dragRef]);
 
   const onRowDragEnd = useCallback(() => { dragRef.current = null; }, [dragRef]);
 
