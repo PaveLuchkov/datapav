@@ -171,22 +171,14 @@ export function traceColumnUpstream(nodeId, colName, edges, nodes) {
       const keyInp = inputs.find((i) => groupByInputIds.includes(i.id) && i.attrName === colName);
       if (keyInp) {
         const step = { nodeId, colName, nodeType: node.type, nodeLabel: node.data.label, upstream: null };
-        for (const e of edges.filter((e) => e.target === nodeId && e.targetHandle === 'df-in')) {
-          const r = traceColumnUpstream(e.source, colName, edges, nodes);
-          if (r) { step.upstream = r; break; }
-        }
+        step.upstream = traceColumnUpstream(keyInp.sourceNodeId, colName, edges, nodes);
         return step;
       }
       const agg = (node.data.aggregations || []).find((a) => a.outputName === colName);
       if (agg) {
         const inp = inputs.find((i) => i.id === agg.inputId);
         const step = { nodeId, colName, nodeType: node.type, nodeLabel: node.data.label, aggFunc: agg.func, inputColName: inp?.attrName, upstream: null };
-        if (inp) {
-          for (const e of edges.filter((e) => e.target === nodeId && e.targetHandle === 'df-in')) {
-            const r = traceColumnUpstream(e.source, inp.attrName, edges, nodes);
-            if (r) { step.upstream = r; break; }
-          }
-        }
+        if (inp) step.upstream = traceColumnUpstream(inp.sourceNodeId, inp.attrName, edges, nodes);
         return step;
       }
       return null;

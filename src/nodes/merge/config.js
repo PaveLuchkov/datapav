@@ -19,7 +19,7 @@ const mergeConfig = {
     id: uid(),
     type: 'mergeNode',
     position: { x, y },
-    data: { joinType: 'inner', keyPairs: [], code: '', stage: null },
+    data: { label: 'merge', joinType: 'inner', keyPairs: [], code: '', stage: null },
   }),
   // No menu entry — merge is created via 2-DF selection, not direct add
   connections: [],

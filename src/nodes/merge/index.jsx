@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Handle, Position } from 'reactflow';
+import EditableText from '../../components/EditableText';
 import StageBadge from '../../components/StageBadge';
 import NodeCodeBlock from '../../components/NodeCodeBlock';
 import { JOIN_TYPES, JOIN_ACTIVE_STYLES } from '../../constants';
@@ -9,8 +10,8 @@ const { colors } = config;
 
 export default function MergeNode({ id, data }) {
   const {
-    joinType, keyPairs, leftDF, rightDF, companionId,
-    onJoinTypeChange, onAddKey, onRemoveKey, onUpdateKey,
+    label, joinType, keyPairs, leftDF, rightDF, companionId,
+    onLabelChange, onJoinTypeChange, onAddKey, onRemoveKey, onUpdateKey,
     onCodeChange, onStageChange, onCreateCompanion,
     trackerHighlight, code, stage,
   } = data;
@@ -52,7 +53,14 @@ export default function MergeNode({ id, data }) {
         className="px-3 py-2 border-b border-purple-900 flex items-center gap-2 cursor-grab active:cursor-grabbing"
         style={{ background: colors.header }}
       >
-        <span className="text-purple-200 font-bold text-sm tracking-widest select-none">⋈ MERGE</span>
+        <span className="font-bold select-none flex-shrink-0" style={{ color: '#a78bfa', fontSize: 13 }}>⋈</span>
+        <EditableText
+          value={label || 'merge'}
+          onChange={(val) => onLabelChange(id, val)}
+          className="text-white font-semibold text-sm flex-1"
+          placeholder="merge"
+          borderColorClass="border-purple-400"
+        />
         <StageBadge nodeId={id} stage={stage} onStageChange={onStageChange} />
         <button
           onClick={(e) => { stop(e); setCodeOpen((v) => !v); }}
