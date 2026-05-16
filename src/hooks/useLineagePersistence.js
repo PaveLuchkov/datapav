@@ -1,7 +1,30 @@
 import { useCallback } from 'react';
 import { getNodesBounds, getViewportForBounds } from 'reactflow';
 import { toPng } from 'html-to-image';
+import { deflate, inflate } from 'pako';
 import { getActiveCanvasKey } from '../constants';
+
+// ── URL encoding helpers ────────────────────────────────────────────────────
+// Compress JSON with deflate, encode as URL-safe base64.
+// A typical 30-node graph compresses from ~40KB JSON → ~3–5KB URL fragment.
+
+function encodeState(nodes, edges) {
+  const json = JSON.stringify({ nodes, edges });
+  const bytes = deflate(json, { level: 6 });
+  // Convert Uint8Array → binary string → base64, then make URL-safe
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function decodeState(hash) {
+  // Restore URL-safe base64 → standard base64 → binary → Uint8Array → inflate
+  const b64 = hash.replace(/-/g, '+').replace(/_/g, '/');
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return JSON.parse(inflate(bytes, { to: 'string' }));
+}
 
 export function useLineagePersistence({ nodes, edges, restoreState, showToast }) {
   const saveState = useCallback(() => {
@@ -83,5 +106,63 @@ export function useLineagePersistence({ nodes, edges, restoreState, showToast })
     input.click();
   }, [restoreState, showToast]);
 
-  return { saveState, loadState, exportPng, saveToFile, loadFromFile };
+  // ── Clipboard ─────────────────────────────────────────────────────────────
+
+  const copyToClipboard = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify({ nodes, edges }, null, 2));
+      showToast('Copied to clipboard!');
+    } catch {
+      showToast('Clipboard access denied');
+    }
+  }, [nodes, edges, showToast]);
+
+  const pasteFromClipboard = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const { nodes: sn, edges: se } = JSON.parse(text);
+      restoreState(sn, se);
+      showToast('Pasted from clipboard!');
+    } catch {
+      showToast('Clipboard is empty or not valid canvas JSON');
+    }
+  }, [restoreState, showToast]);
+
+  // ── URL sharing ───────────────────────────────────────────────────────────
+
+  const copyShareUrl = useCallback(() => {
+    try {
+      const hash = encodeState(nodes, edges);
+      const url = `${window.location.origin}${window.location.pathname}#${hash}`;
+      navigator.clipboard.writeText(url).then(() => {
+        showToast('Share link copied!');
+      }).catch(() => {
+        showToast('Clipboard access denied');
+      });
+    } catch {
+      showToast('Failed to encode canvas');
+    }
+  }, [nodes, edges, showToast]);
+
+  // Call once on mount from App.jsx to restore from URL hash if present.
+  const loadFromUrlHash = useCallback(() => {
+    const hash = window.location.hash.slice(1);
+    if (!hash) return false;
+    try {
+      const { nodes: sn, edges: se } = decodeState(hash);
+      restoreState(sn, se);
+      // Clean the hash so refreshing doesn't re-import
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      showToast('Canvas loaded from shared link!');
+      return true;
+    } catch {
+      showToast('Invalid share link');
+      return false;
+    }
+  }, [restoreState, showToast]);
+
+  return {
+    saveState, loadState, exportPng, saveToFile, loadFromFile,
+    copyToClipboard, pasteFromClipboard, copyShareUrl, loadFromUrlHash,
+  };
 }

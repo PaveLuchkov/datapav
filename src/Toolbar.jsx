@@ -137,6 +137,32 @@ const IcoSqlIn = () => (
   </Ico>
 );
 
+const IcoCopy = () => (
+  <Ico>
+    <rect x="4.5" y="4.5" width="8" height="8" rx="1" />
+    <path d="M4.5 4.5V3a1 1 0 0 0-1-1H2.5A1 1 0 0 0 1.5 3v8a1 1 0 0 0 1 1H4.5" />
+  </Ico>
+);
+
+const IcoPaste = () => (
+  <Ico>
+    <rect x="2" y="4" width="8" height="9" rx="1" />
+    <path d="M4.5 4V2.5h3V4" />
+    <line x1="10" y1="7" x2="13.5" y2="7" />
+    <line x1="11.75" y1="4.5" x2="11.75" y2="9.5" />
+  </Ico>
+);
+
+const IcoShare = () => (
+  <Ico>
+    <circle cx="12" cy="3" r="1.5" />
+    <circle cx="12" cy="12" r="1.5" />
+    <circle cx="3" cy="7.5" r="1.5" />
+    <line x1="10.5" y1="3.75" x2="4.5" y2="6.75" />
+    <line x1="4.5" y1="8.25" x2="10.5" y2="11.25" />
+  </Ico>
+);
+
 const IcoSqlOut = () => (
   <Ico>
     <rect x="1.5" y="3" width="10" height="7" rx="1.5" />
@@ -275,6 +301,7 @@ const NODE_COLORS = {
 export default function Toolbar({
   addableNodes, onAddNode,
   onSave, onSaveToFile, onLoadFromFile, onExportPng,
+  onCopyToClipboard, onPasteFromClipboard, onCopyShareUrl,
   selectedDFCount, onMergeSelected,
   onUndo, onRedo, onAutoLayout, onSearch, onTrackAttr, trackerActive,
   onImportSql, onExportSql,
@@ -326,6 +353,9 @@ export default function Toolbar({
       <Tip label="Save canvas" kbd="⌃S"><Btn onClick={onSaveToFile}><IcoSave /></Btn></Tip>
       <Tip label="Open canvas" kbd="⌃O"><Btn onClick={onLoadFromFile}><IcoFolder /></Btn></Tip>
       <Tip label="Export PNG"><Btn onClick={onExportPng}><IcoImage /></Btn></Tip>
+      <Tip label="Copy canvas to clipboard" kbd="⌃⇧C"><Btn onClick={onCopyToClipboard}><IcoCopy /></Btn></Tip>
+      <Tip label="Paste canvas from clipboard" kbd="⌃⇧V"><Btn onClick={onPasteFromClipboard}><IcoPaste /></Btn></Tip>
+      <Tip label="Copy share link"><Btn onClick={onCopyShareUrl} color="text-sky-400"><IcoShare /></Btn></Tip>
 
       <Sep />
 

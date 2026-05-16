@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { uid } from './utils/uid';
 import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
 import ColumnEdge from './components/ColumnEdge';
@@ -79,9 +79,13 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(null), 2000);
   }, []);
 
-  const { saveState, loadState, exportPng, saveToFile, loadFromFile } = useLineagePersistence({
-    nodes, edges, restoreState, showToast,
-  });
+  const {
+    saveState, loadState, exportPng, saveToFile, loadFromFile,
+    copyToClipboard, pasteFromClipboard, copyShareUrl, loadFromUrlHash,
+  } = useLineagePersistence({ nodes, edges, restoreState, showToast });
+
+  // On first mount: restore from URL hash if present (shared link), then clean the URL.
+  useEffect(() => { loadFromUrlHash(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { tabs, activeTabId, switchTab, addTab, closeTab, renameTab } = useCanvasTabs({
     nodes, edges, restoreState,
@@ -363,6 +367,16 @@ export default function App() {
       loadFromFile();
       return;
     }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+      e.preventDefault();
+      copyToClipboard();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'V') {
+      e.preventDefault();
+      pasteFromClipboard();
+      return;
+    }
 
     if (!inInput && !e.ctrlKey && !e.metaKey && !e.altKey && e.key === '?') {
       e.preventDefault();
@@ -387,7 +401,7 @@ export default function App() {
     }
 
     onKeyDown(e);
-  }, [onKeyDown, saveToFile, loadFromFile, addNodeOfType, handleAutoLayout, selectedDFs, createMerge, traceState]);
+  }, [onKeyDown, saveToFile, loadFromFile, copyToClipboard, pasteFromClipboard, addNodeOfType, handleAutoLayout, selectedDFs, createMerge, traceState]);
 
   // ── Render ─────────────────────────────────────────────────────────────
 
@@ -433,6 +447,9 @@ export default function App() {
           onSaveToFile={saveToFile}
           onLoadFromFile={loadFromFile}
           onExportPng={exportPng}
+          onCopyToClipboard={copyToClipboard}
+          onPasteFromClipboard={pasteFromClipboard}
+          onCopyShareUrl={copyShareUrl}
           selectedDFCount={selectedDFs.length}
           onMergeSelected={handleMergeSelected}
           onUndo={undo}
