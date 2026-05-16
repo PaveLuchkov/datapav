@@ -84,8 +84,16 @@ export default function App() {
     copyToClipboard, pasteFromClipboard, copyShareUrl, loadFromUrlHash,
   } = useLineagePersistence({ nodes, edges, restoreState, showToast });
 
-  // On first mount: restore from URL hash if present (shared link), then clean the URL.
-  useEffect(() => { loadFromUrlHash(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // On first mount: URL hash takes priority; otherwise load demo canvas once (first-ever run).
+  useEffect(() => {
+    if (loadFromUrlHash()) return;
+    if (!localStorage.getItem('lineage-demo-loaded')) {
+      localStorage.setItem('lineage-demo-loaded', '1');
+      import('./data/demoCanvas.json').then(({ default: demo }) => {
+        restoreState(demo.nodes, demo.edges);
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { tabs, activeTabId, switchTab, addTab, closeTab, renameTab } = useCanvasTabs({
     nodes, edges, restoreState,
