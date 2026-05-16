@@ -12,7 +12,7 @@ const ROW_HEIGHT = 24;
 
 export default function FunctionNode({ id, data }) {
   const {
-    label, inputs, outputs, connectedDFs,
+    label, inputs, outputs, connectedDFs, companionId,
     onLabelChange,
     onFunctionInputDrop,
     onDeleteFunctionInput,
@@ -20,7 +20,7 @@ export default function FunctionNode({ id, data }) {
     onDeleteFunctionOutput,
     onFunctionOutputChange,
     onFunctionOutputTypeChange,
-    onCodeChange, onStageChange,
+    onCodeChange, onStageChange, onCreateCompanion,
     trackerHighlight, code, stage,
   } = data;
 
@@ -120,6 +120,16 @@ export default function FunctionNode({ id, data }) {
           style={{ fontSize: 10, color: colors.handleFill, opacity: codeOpen ? 1 : 0.4 }}
         >
           {codeOpen ? '[/]' : '</>'}
+        </button>
+        {/* Companion button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); if (!companionId) onCreateCompanion(id); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          title={companionId ? 'Output companion exists' : 'Create output DataFrame'}
+          className="flex-shrink-0 select-none text-xs font-mono transition-colors"
+          style={{ color: companionId ? colors.handleFill : 'rgba(74,222,128,0.25)' }}
+        >
+          {companionId ? '→●' : '→○'}
         </button>
       </div>
 

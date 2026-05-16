@@ -14,7 +14,8 @@ import SqlImportModal from './components/SqlImportModal';
 import SqlExportModal from './components/SqlExportModal';
 import ShortcutsModal from './components/ShortcutsModal';
 import { generateSql } from './utils/exportSql';
-import { computeNodeOutputAttributes } from './utils/nodeOutputAttrs';
+import { computeNodeOutputAttributes, traceColumnUpstream, traceColumnDownstream, flattenUpstream } from './utils/nodeOutputAttrs';
+import TracePanel from './components/TracePanel';
 import { useLineageState } from './hooks/useLineageState';
 import { useLineagePersistence } from './hooks/useLineagePersistence';
 import { useCanvasTabs } from './hooks/useCanvasTabs';
@@ -153,6 +154,50 @@ export default function App() {
   const [trackerQuery, setTrackerQuery] = useState('');
   const [trackerWholeWord, setTrackerWholeWord] = useState(false);
 
+  // ── Column Trace ───────────────────────────────────────────────────────
+  // traceState: { nodeId, colName, nodeType, nodeLabel } | null
+  const [traceState, setTraceState] = useState(null);
+
+  const onTraceColumn = useCallback((nodeId, colName) => {
+    const n = nodes.find((nd) => nd.id === nodeId);
+    setTraceState((prev) =>
+      prev?.nodeId === nodeId && prev?.colName === colName
+        ? null
+        : { nodeId, colName, nodeType: n?.type, nodeLabel: n?.data?.label }
+    );
+  }, [nodes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const traceResult = useMemo(() => {
+    if (!traceState) return null;
+    return {
+      upstream: traceColumnUpstream(traceState.nodeId, traceState.colName, edges, nodes),
+      downstream: traceColumnDownstream(traceState.nodeId, traceState.colName, edges, nodes),
+    };
+  }, [traceState, edges, nodes]);
+
+  const tracePathNodeIds = useMemo(() => {
+    if (!traceResult) return null;
+    const ids = new Set([traceState.nodeId]);
+    const chain = flattenUpstream(traceResult.upstream);
+    for (const step of chain) ids.add(step.nodeId);
+    function addDown(items) {
+      for (const item of (items || [])) { ids.add(item.nodeId); addDown(item.downstream); }
+    }
+    addDown(traceResult.downstream);
+    return ids;
+  }, [traceResult, traceState]);
+
+  const tracePathEdgeIds = useMemo(() => {
+    if (!tracePathNodeIds) return null;
+    const ids = new Set();
+    for (const e of edges) {
+      if (tracePathNodeIds.has(e.source) && tracePathNodeIds.has(e.target)) ids.add(e.id);
+    }
+    return ids;
+  }, [tracePathNodeIds, edges]);
+
+  // ── Attribute Tracker ──────────────────────────────────────────────────
+
   const trackerMatchIds = useMemo(() => {
     const q = trackerQuery.trim().toLowerCase();
     if (!trackerOpen || !q) return null;
@@ -187,9 +232,34 @@ export default function App() {
   }, [trackerOpen, trackerQuery, trackerWholeWord, nodesWithCallbacks]);
 
   const trackedNodes = useMemo(() => {
-    if (!trackerMatchIds) return nodesWithCallbacks;
+    // Inject onTraceColumn into all nodes (DataFrameNode picks it up from data)
+    const withTrace = nodesWithCallbacks.map((n) => ({
+      ...n,
+      data: {
+        ...n.data,
+        onTraceColumn,
+        // Which column is being traced in THIS specific node (for per-row highlight)
+        traceColName: traceState?.nodeId === n.id ? traceState.colName : null,
+      },
+    }));
+
+    // Trace mode takes priority over keyword tracker
+    if (tracePathNodeIds) {
+      return withTrace.map((n) => {
+        const onPath = tracePathNodeIds.has(n.id);
+        const isCurrent = n.id === traceState?.nodeId;
+        return {
+          ...n,
+          style: onPath
+            ? { ...n.style, opacity: 1, boxShadow: isCurrent ? '0 0 0 2px #06b6d4, 0 0 16px rgba(6,182,212,0.4)' : '0 0 0 2px #1e4d8c, 0 0 10px rgba(30,77,140,0.3)', borderRadius: 8, transition: 'all 0.2s ease' }
+            : { ...n.style, opacity: 0.1, transition: 'all 0.2s ease' },
+        };
+      });
+    }
+
+    if (!trackerMatchIds) return withTrace;
     const highlight = { query: trackerQuery.trim().toLowerCase(), wholeWord: trackerWholeWord };
-    return nodesWithCallbacks.map((n) => {
+    return withTrace.map((n) => {
       const matched = trackerMatchIds.has(n.id);
       return {
         ...n,
@@ -199,7 +269,7 @@ export default function App() {
           : { ...n.style, opacity: 0.12, transition: 'all 0.2s ease' },
       };
     });
-  }, [nodesWithCallbacks, trackerMatchIds, trackerQuery, trackerWholeWord]);
+  }, [nodesWithCallbacks, trackerMatchIds, trackerQuery, trackerWholeWord, tracePathNodeIds, traceState, onTraceColumn]);
 
   const trackedEdges = useMemo(() => {
     if (!trackerMatchIds) return edges;
@@ -212,7 +282,18 @@ export default function App() {
   }, [edges, trackerMatchIds]);
 
   const displayEdges = useMemo(() => {
-    const base = trackerMatchIds ? trackedEdges : edges;
+    let base = trackerMatchIds ? trackedEdges : edges;
+
+    // In trace mode, highlight path edges and dim everything else
+    if (tracePathEdgeIds) {
+      base = base.map((e) => {
+        const onPath = tracePathEdgeIds.has(e.id);
+        return onPath
+          ? { ...e, style: { ...e.style, stroke: '#06b6d4', strokeWidth: 2.5, strokeDasharray: undefined, opacity: 1 }, animated: true }
+          : { ...e, style: { ...e.style, opacity: 0.04 }, animated: false };
+      });
+    }
+
     return base.map((e) => {
       if (e.type !== 'columnEdge') return e;
       const attrId = e.sourceHandle?.slice(0, -7); // strip '-source'
@@ -229,7 +310,7 @@ export default function App() {
         null;
       return name ? { ...e, data: { ...e.data, label: name } } : e;
     });
-  }, [trackedEdges, edges, trackerMatchIds, nodes]);
+  }, [trackedEdges, edges, trackerMatchIds, nodes, tracePathEdgeIds]);
 
   // Pre-compute output attributes for every node so SearchModal can search
   // across all node types (MergeNode, FilterNode, GroupByNode, etc.)
@@ -254,6 +335,13 @@ export default function App() {
 
   const handleKeyDown = useCallback((e) => {
     const inInput = ['INPUT', 'TEXTAREA'].includes(e.target.tagName) || e.target.isContentEditable;
+
+    // Escape: close trace mode first, then other panels
+    if (e.key === 'Escape' && traceState) {
+      e.preventDefault();
+      setTraceState(null);
+      return;
+    }
 
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
       e.preventDefault();
@@ -299,7 +387,7 @@ export default function App() {
     }
 
     onKeyDown(e);
-  }, [onKeyDown, saveToFile, loadFromFile, addNodeOfType, handleAutoLayout, selectedDFs, createMerge]);
+  }, [onKeyDown, saveToFile, loadFromFile, addNodeOfType, handleAutoLayout, selectedDFs, createMerge, traceState]);
 
   // ── Render ─────────────────────────────────────────────────────────────
 
@@ -357,7 +445,16 @@ export default function App() {
           onExportSql={handleExportSql}
         />
 
-        {trackerOpen && (
+        {traceState && (
+          <TracePanel
+            traceState={traceState}
+            traceResult={traceResult}
+            onClose={() => setTraceState(null)}
+            onNavigate={navigateToNode}
+          />
+        )}
+
+        {trackerOpen && !traceState && (
           <AttributeTrackerPanel
             query={trackerQuery}
             wholeWord={trackerWholeWord}

@@ -25,11 +25,11 @@ const ROW_HEIGHT = 26;
 
 export default function GroupByNode({ id, data }) {
   const {
-    label, inputs, groupByInputIds, aggregations,
+    label, inputs, groupByInputIds, aggregations, companionId,
     onLabelChange,
     onGroupByInputDrop, onDeleteGroupByInput, onToggleGroupByKey,
     onAddGroupByAgg, onDeleteGroupByAgg, onUpdateGroupByAgg,
-    onCodeChange, onStageChange,
+    onCodeChange, onStageChange, onCreateCompanion,
     trackerHighlight, code, stage,
   } = data;
 
@@ -141,6 +141,16 @@ export default function GroupByNode({ id, data }) {
           style={{ fontSize: 10, color: colors.handleFill, opacity: codeOpen ? 1 : 0.4 }}
         >
           {codeOpen ? '[/]' : '</>'}
+        </button>
+        {/* Companion button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); if (!companionId) onCreateCompanion(id); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          title={companionId ? 'Output companion exists' : 'Create output DataFrame'}
+          className="flex-shrink-0 select-none text-xs font-mono transition-colors"
+          style={{ color: companionId ? colors.handleFill : '#164e63' }}
+        >
+          {companionId ? '→●' : '→○'}
         </button>
       </div>
 

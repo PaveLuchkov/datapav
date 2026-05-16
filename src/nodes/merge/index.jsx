@@ -1,19 +1,17 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Handle, Position } from 'reactflow';
-import { useDrag } from '../../components/DragContext';
 import StageBadge from '../../components/StageBadge';
 import NodeCodeBlock from '../../components/NodeCodeBlock';
-import { DRAG_TYPE, JOIN_TYPES, JOIN_ACTIVE_STYLES, ATTR_TYPE_META } from '../../constants';
+import { JOIN_TYPES, JOIN_ACTIVE_STYLES } from '../../constants';
 import config from './config';
 
 const { colors } = config;
-const ROW_HEIGHT = 24;
 
 export default function MergeNode({ id, data }) {
   const {
-    joinType, keyPairs, leftDF, rightDF,
+    joinType, keyPairs, leftDF, rightDF, companionId,
     onJoinTypeChange, onAddKey, onRemoveKey, onUpdateKey,
-    onCodeChange, onStageChange,
+    onCodeChange, onStageChange, onCreateCompanion,
     trackerHighlight, code, stage,
   } = data;
 
@@ -24,28 +22,16 @@ export default function MergeNode({ id, data }) {
   };
 
   const [codeOpen, setCodeOpen] = useState(false);
-  const dragRef = useDrag();
   const stop = (e) => e.stopPropagation();
 
   const safeKeyPairs = keyPairs || [];
   const leftCols  = leftDF?.attributes  || [];
   const rightCols = rightDF?.attributes || [];
 
-  const onOutputDragStart = useCallback((e, side, attr) => {
-    e.stopPropagation();
-    const attrId = `mout-${side}-${attr.id}`;
-    const drag = { sourceNodeId: id, attrId, attrName: attr.name, attrType: attr.type || 'string', sourceNodeLabel: '⋈ merge' };
-    dragRef.current = drag;
-    e.dataTransfer.effectAllowed = 'copy';
-    e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(drag));
-  }, [id, dragRef]);
-
-  const onOutputDragEnd = useCallback(() => { dragRef.current = null; }, [dragRef]);
-
   return (
     <div
       className="rounded-lg overflow-visible shadow-2xl"
-      style={{ background: colors.bg, border: `1px solid ${colors.border}`, minWidth: 360 }}
+      style={{ background: colors.bg, border: `1px solid ${colors.border}`, minWidth: 300 }}
       onContextMenu={stop}
     >
       <Handle
@@ -61,8 +47,9 @@ export default function MergeNode({ id, data }) {
         style={{ top: 14, background: colors.handleLeft, border: `2px solid ${colors.handleBorder}`, width: 8, height: 8, borderRadius: 2 }}
       />
 
+      {/* Header */}
       <div
-        className="px-3 py-2 border-b border-purple-900 flex items-center justify-between cursor-grab active:cursor-grabbing"
+        className="px-3 py-2 border-b border-purple-900 flex items-center gap-2 cursor-grab active:cursor-grabbing"
         style={{ background: colors.header }}
       >
         <span className="text-purple-200 font-bold text-sm tracking-widest select-none">⋈ MERGE</span>
@@ -76,7 +63,18 @@ export default function MergeNode({ id, data }) {
         >
           {codeOpen ? '[/]' : '</>'}
         </button>
-        <div className="flex gap-0.5 ml-auto">
+        {/* Companion button */}
+        <button
+          onClick={(e) => { stop(e); if (!companionId) onCreateCompanion(id); }}
+          onMouseDown={stop}
+          title={companionId ? 'Output companion exists' : 'Create output DataFrame'}
+          className="flex-shrink-0 select-none text-xs font-mono transition-colors ml-auto"
+          style={{ color: companionId ? '#a78bfa' : '#4c1d95' }}
+        >
+          {companionId ? '→●' : '→○'}
+        </button>
+        {/* Join type buttons */}
+        <div className="flex gap-0.5">
           {JOIN_TYPES.map((jt) => {
             const active = joinType === jt;
             return (
@@ -94,138 +92,81 @@ export default function MergeNode({ id, data }) {
         </div>
       </div>
 
-      <div className="flex" style={{ minHeight: 80 }}>
-        <div className="py-2 border-r border-purple-900/50" style={{ flex: '1 1 0', minWidth: 0 }}>
-          <div className="px-3 pb-2">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="text-xs font-bold select-none" style={{ color: '#7c3aed', minWidth: 10 }}>L</span>
-              <span className="text-xs truncate" style={{ color: leftDF ? '#c4b5fd' : '#4c1d95' }}>
-                {leftDF ? leftDF.label : <em>not connected</em>}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold select-none" style={{ color: '#9333ea', minWidth: 10 }}>R</span>
-              <span className="text-xs truncate" style={{ color: rightDF ? '#d8b4fe' : '#4c1d95' }}>
-                {rightDF ? rightDF.label : <em>not connected</em>}
-              </span>
-            </div>
+      {/* Body: source labels + join key config */}
+      <div className="px-3 py-2" style={{ minHeight: 72 }}>
+        {/* Source labels */}
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <span className="text-xs font-bold select-none flex-shrink-0" style={{ color: '#7c3aed' }}>L</span>
+            <span className="text-xs truncate" style={{ color: leftDF ? '#c4b5fd' : '#4c1d95' }}>
+              {leftDF ? leftDF.label : <em>not connected</em>}
+            </span>
           </div>
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <span className="text-xs font-bold select-none flex-shrink-0" style={{ color: '#9333ea' }}>R</span>
+            <span className="text-xs truncate" style={{ color: rightDF ? '#d8b4fe' : '#4c1d95' }}>
+              {rightDF ? rightDF.label : <em>not connected</em>}
+            </span>
+          </div>
+        </div>
 
-          <div className="pt-1.5 border-t border-purple-900/40 px-2">
-            <div className="text-xs font-semibold uppercase tracking-wider mb-1.5 px-1 select-none" style={{ color: '#6d28d9' }}>
-              Join keys
-            </div>
-            {safeKeyPairs.length === 0 && (
-              <div className="text-xs italic px-1 mb-1" style={{ color: '#4c1d95' }}>No keys — cross join</div>
-            )}
-            {safeKeyPairs.map((pair, i) => {
-              const trackedPair = isTrackedAttr(pair.left) || isTrackedAttr(pair.right);
-              return (
-              <div key={i} className="flex items-center gap-1 mb-1.5"
-                style={trackedPair ? { background: 'rgba(245,158,11,0.08)', borderRadius: 4 } : undefined}
-              >
-                <select
-                  value={pair.left}
-                  onChange={(e) => { stop(e); onUpdateKey(id, i, 'left', e.target.value); }}
-                  onMouseDown={stop}
-                  disabled={!leftDF}
-                  className="text-xs px-1 py-0.5 rounded outline-none transition-colors cursor-pointer disabled:cursor-default"
-                  style={{ flex: '1 1 0', minWidth: 0, background: '#1e0a3c', border: '1px solid #4c1d95', color: pair.left ? '#c4b5fd' : '#6d28d9' }}
-                >
-                  <option value="">{leftDF ? '— L col —' : 'no L df'}</option>
-                  {leftCols.map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
-                </select>
-                <span className="text-xs font-mono select-none flex-shrink-0" style={{ color: '#4c1d95' }}>=</span>
-                <select
-                  value={pair.right}
-                  onChange={(e) => { stop(e); onUpdateKey(id, i, 'right', e.target.value); }}
-                  onMouseDown={stop}
-                  disabled={!rightDF}
-                  className="text-xs px-1 py-0.5 rounded outline-none transition-colors cursor-pointer disabled:cursor-default"
-                  style={{ flex: '1 1 0', minWidth: 0, background: '#1e0a3c', border: '1px solid #4c1d95', color: pair.right ? '#d8b4fe' : '#6d28d9' }}
-                >
-                  <option value="">{rightDF ? '— R col —' : 'no R df'}</option>
-                  {rightCols.map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
-                </select>
-                <button
-                  onClick={(e) => { stop(e); onRemoveKey(id, i); }}
-                  onMouseDown={stop}
-                  className="text-xs w-4 h-4 flex items-center justify-center flex-shrink-0 transition-colors"
-                  style={{ color: '#ef4444' }}
-                >
-                  ×
-                </button>
-              </div>
-              );
-            })}
-            <button
-              onClick={(e) => { stop(e); onAddKey(id); }}
-              onMouseDown={stop}
-              className="text-xs flex items-center gap-1 transition-colors px-1"
-              style={{ color: '#6d28d9' }}
+        {/* Join keys */}
+        <div className="text-xs font-semibold uppercase tracking-wider mb-1.5 select-none" style={{ color: '#6d28d9' }}>
+          Join keys
+        </div>
+        {safeKeyPairs.length === 0 && (
+          <div className="text-xs italic mb-1" style={{ color: '#4c1d95' }}>No keys — cross join</div>
+        )}
+        {safeKeyPairs.map((pair, i) => {
+          const trackedPair = isTrackedAttr(pair.left) || isTrackedAttr(pair.right);
+          return (
+            <div key={i} className="flex items-center gap-1 mb-1.5"
+              style={trackedPair ? { background: 'rgba(245,158,11,0.08)', borderRadius: 4 } : undefined}
             >
-              + add key
-            </button>
-          </div>
-        </div>
-
-        <div className="py-2" style={{ flex: '1 1 0', minWidth: 0 }}>
-          <div className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider select-none" style={{ color: '#6d28d9' }}>
-            Output
-          </div>
-          {leftCols.length === 0 && rightCols.length === 0 && (
-            <div className="px-3 text-xs italic" style={{ color: '#4c1d95' }}>Connect DFs to see columns</div>
-          )}
-          {leftCols.map((attr) => (
-            <OutputRow key={`L-${attr.id}`} side="L" attr={attr} onDragStart={onOutputDragStart} onDragEnd={onOutputDragEnd} tracked={isTrackedAttr(attr.name)} />
-          ))}
-          {rightCols.map((attr) => (
-            <OutputRow key={`R-${attr.id}`} side="R" attr={attr} onDragStart={onOutputDragStart} onDragEnd={onOutputDragEnd} tracked={isTrackedAttr(attr.name)} />
-          ))}
-        </div>
+              <select
+                value={pair.left}
+                onChange={(e) => { stop(e); onUpdateKey(id, i, 'left', e.target.value); }}
+                onMouseDown={stop}
+                disabled={!leftDF}
+                className="text-xs px-1 py-0.5 rounded outline-none transition-colors cursor-pointer disabled:cursor-default"
+                style={{ flex: '1 1 0', minWidth: 0, background: '#1e0a3c', border: '1px solid #4c1d95', color: pair.left ? '#c4b5fd' : '#6d28d9' }}
+              >
+                <option value="">{leftDF ? '— L col —' : 'no L df'}</option>
+                {leftCols.map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
+              </select>
+              <span className="text-xs font-mono select-none flex-shrink-0" style={{ color: '#4c1d95' }}>=</span>
+              <select
+                value={pair.right}
+                onChange={(e) => { stop(e); onUpdateKey(id, i, 'right', e.target.value); }}
+                onMouseDown={stop}
+                disabled={!rightDF}
+                className="text-xs px-1 py-0.5 rounded outline-none transition-colors cursor-pointer disabled:cursor-default"
+                style={{ flex: '1 1 0', minWidth: 0, background: '#1e0a3c', border: '1px solid #4c1d95', color: pair.right ? '#d8b4fe' : '#6d28d9' }}
+              >
+                <option value="">{rightDF ? '— R col —' : 'no R df'}</option>
+                {rightCols.map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
+              </select>
+              <button
+                onClick={(e) => { stop(e); onRemoveKey(id, i); }}
+                onMouseDown={stop}
+                className="text-xs w-4 h-4 flex items-center justify-center flex-shrink-0 transition-colors"
+                style={{ color: '#ef4444' }}
+              >
+                ×
+              </button>
+            </div>
+          );
+        })}
+        <button
+          onClick={(e) => { stop(e); onAddKey(id); }}
+          onMouseDown={stop}
+          className="text-xs flex items-center gap-1 transition-colors"
+          style={{ color: '#6d28d9' }}
+        >
+          + add key
+        </button>
       </div>
       {codeOpen && <NodeCodeBlock nodeId={id} code={code} onCodeChange={onCodeChange} borderColor={colors.border} />}
-    </div>
-  );
-}
-
-function TypeBadge({ type }) {
-  const meta = ATTR_TYPE_META[type] || ATTR_TYPE_META.string;
-  return (
-    <span
-      className="mr-1 rounded flex-shrink-0 select-none"
-      style={{ fontSize: 9, lineHeight: '14px', padding: '0 4px', color: meta.color, background: meta.bg, fontFamily: 'monospace' }}
-    >
-      {meta.abbr}
-    </span>
-  );
-}
-
-function OutputRow({ side, attr, onDragStart, onDragEnd, tracked }) {
-  const sideColor = side === 'L' ? '#7c3aed' : '#9333ea';
-  return (
-    <div
-      draggable
-      onMouseDown={(e) => e.stopPropagation()}
-      onDragStart={(e) => onDragStart(e, side, attr)}
-      onDragEnd={onDragEnd}
-      className="relative flex items-center group hover:bg-purple-900/30 transition-colors cursor-grab active:cursor-grabbing"
-      style={{ paddingLeft: 8, paddingRight: 22, minHeight: ROW_HEIGHT, background: tracked ? 'rgba(245,158,11,0.08)' : undefined }}
-    >
-      <span className="text-xs font-bold mr-1.5 flex-shrink-0 select-none" style={{ color: sideColor, fontSize: 9, lineHeight: 1 }}>
-        {side}
-      </span>
-      <TypeBadge type={attr.type || 'string'} />
-      <span className="text-xs flex-1 truncate" style={{ color: tracked ? '#fcd34d' : '#e9d5ff', fontWeight: tracked ? 700 : undefined }}>{attr.name}</span>
-      <Handle
-        type="source" position={Position.Right}
-        id={`mout-${side}-${attr.id}-source`}
-        style={{
-          right: -5, top: '50%', transform: 'translateY(-50%)',
-          position: 'absolute', background: sideColor,
-          border: `2px solid ${colors.bg}`, width: 8, height: 8,
-        }}
-      />
     </div>
   );
 }

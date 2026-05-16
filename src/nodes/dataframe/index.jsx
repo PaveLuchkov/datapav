@@ -12,12 +12,12 @@ const ATTR_ROW_HEIGHT = 28;
 
 export default function DataFrameNode({ id, data }) {
   const {
-    label, attributes,
+    label, attributes, _companionOf,
     onLabelChange, onAttributeChange, onAttributeTypeChange,
     onAddAttribute, onDeleteAttribute,
     onAttributeDrop, onReorderAttributes,
-    onCodeChange, onStageChange,
-    trackerHighlight, code, stage,
+    onCodeChange, onStageChange, onTraceColumn,
+    trackerHighlight, traceColName, code, stage,
   } = data;
 
   const [codeOpen, setCodeOpen] = useState(false);
@@ -136,6 +136,12 @@ export default function DataFrameNode({ id, data }) {
           className="text-white font-semibold text-sm"
           placeholder="DataFrame"
         />
+        {/* Companion badge — shown when this DF is an operator output */}
+        {_companionOf && (
+          <span className="ml-1 select-none flex-shrink-0" style={{ fontSize: 9, color: '#334155', fontFamily: 'monospace' }}>
+            ⊙
+          </span>
+        )}
         <StageBadge nodeId={id} stage={stage} onStageChange={onStageChange} />
         <button
           onClick={(e) => { e.stopPropagation(); setCodeOpen((v) => !v); }}
@@ -146,14 +152,16 @@ export default function DataFrameNode({ id, data }) {
         >
           {codeOpen ? '[/]' : '</>'}
         </button>
-        <button
-          onClick={handleAddAttribute}
-          onMouseDown={(e) => e.stopPropagation()}
-          className="ml-1 text-blue-300 hover:text-white text-xs font-bold leading-none w-5 h-5 flex items-center justify-center rounded hover:bg-blue-700 transition-colors"
-          title="Add attribute"
-        >
-          +
-        </button>
+        {!_companionOf && (
+          <button
+            onClick={handleAddAttribute}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="ml-1 text-blue-300 hover:text-white text-xs font-bold leading-none w-5 h-5 flex items-center justify-center rounded hover:bg-blue-700 transition-colors"
+            title="Add attribute"
+          >
+            +
+          </button>
+        )}
       </div>
 
       {isDragOver && (
@@ -171,6 +179,7 @@ export default function DataFrameNode({ id, data }) {
 
         {attributes.map((attr, index) => {
           const tracked = isTrackedAttr(attr.name);
+          const isTracing = traceColName === attr.name;
           return (
           <React.Fragment key={attr.id}>
             <div
@@ -183,7 +192,7 @@ export default function DataFrameNode({ id, data }) {
               className="relative flex items-center group hover:bg-blue-900/30 transition-colors cursor-grab active:cursor-grabbing"
               style={{
                 paddingLeft: 14, paddingRight: 14, minHeight: ATTR_ROW_HEIGHT,
-                background: tracked ? 'rgba(245,158,11,0.08)' : undefined,
+                background: isTracing ? 'rgba(6,182,212,0.12)' : tracked ? 'rgba(245,158,11,0.08)' : undefined,
               }}
             >
               <Handle
@@ -193,7 +202,7 @@ export default function DataFrameNode({ id, data }) {
               <span className="text-blue-600 mr-1.5 text-xs opacity-0 group-hover:opacity-100 transition-opacity select-none">⠿</span>
               <TypeBadge
                 type={attr.type || 'string'}
-                onClick={(e) => {
+                onClick={_companionOf ? undefined : (e) => {
                   e.stopPropagation();
                   const idx = ATTR_TYPES.indexOf(attr.type || 'string');
                   const next = ATTR_TYPES[(idx + 1) % ATTR_TYPES.length];
@@ -202,18 +211,32 @@ export default function DataFrameNode({ id, data }) {
               />
               <EditableText
                 value={attr.name}
-                onChange={(val) => onAttributeChange(id, attr.id, val)}
-                className={tracked ? 'text-amber-300 text-xs flex-1 font-bold' : 'text-blue-100 text-xs flex-1'}
+                onChange={_companionOf ? undefined : (val) => onAttributeChange(id, attr.id, val)}
+                className={isTracing ? 'text-cyan-300 text-xs flex-1 font-bold' : tracked ? 'text-amber-300 text-xs flex-1 font-bold' : 'text-blue-100 text-xs flex-1'}
                 placeholder="column"
               />
-              <button
-                onClick={(e) => handleDeleteAttribute(e, attr.id)}
-                onMouseDown={(e) => e.stopPropagation()}
-                className="ml-1 text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-300 text-xs w-4 h-4 flex items-center justify-center transition-opacity"
-                title="Delete attribute"
-              >
-                ×
-              </button>
+              {/* Trace button — appears on hover */}
+              {onTraceColumn && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onTraceColumn(id, attr.name); }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  title={`Trace: ${attr.name}`}
+                  className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 w-4 h-4 flex items-center justify-center"
+                  style={{ color: isTracing ? '#06b6d4' : '#475569', fontSize: 10 }}
+                >
+                  ◎
+                </button>
+              )}
+              {!_companionOf && (
+                <button
+                  onClick={(e) => handleDeleteAttribute(e, attr.id)}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="ml-1 text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-300 text-xs w-4 h-4 flex items-center justify-center transition-opacity"
+                  title="Delete attribute"
+                >
+                  ×
+                </button>
+              )}
               <Handle
                 type="source" position={Position.Right} id={`${attr.id}-source`}
                 style={{ right: -5, top: '50%', transform: 'translateY(-50%)', position: 'absolute' }}

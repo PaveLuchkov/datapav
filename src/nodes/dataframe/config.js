@@ -26,6 +26,19 @@ const dataframeConfig = {
       ...dataOverrides,
     },
   }),
+  // Companion DF: output of an operator node, auto-synced by result-DF useEffect
+  makeCompanion: (id, companionOf, x, y, attributes = [], label = 'output') => ({
+    id,
+    type: 'dataFrameNode',
+    position: { x, y },
+    data: {
+      label,
+      attributes,
+      code: '',
+      stage: null,
+      _companionOf: companionOf,
+    },
+  }),
   menu: { label: 'DataFrame', icon: '+', btnClass: 'bg-blue-700 hover:bg-blue-600 text-white' },
   // sourceHandle → allowed targetHandles (exact string matches)
   connections: [

@@ -74,6 +74,21 @@ const makeMergeEdge = (source, sourceHandle, target, targetHandle) => ({
   markerEnd: { type: MarkerType.ArrowClosed, color: '#7c3aed' },
 });
 
+// Dashed edge that visually marks the operator→companion relationship
+const makeCompanionEdge = (operatorId, companionId) => ({
+  id: `ecomp-${uid()}`,
+  source: operatorId,
+  sourceHandle: 'df-out',
+  target: companionId,
+  targetHandle: 'df-in',
+  type: 'smoothstep',
+  style: { stroke: '#334155', strokeWidth: 1.5, strokeDasharray: '5 4' },
+  markerEnd: { type: MarkerType.ArrowClosed, color: '#334155' },
+  data: { isCompanionEdge: true },
+});
+
+const COMPANION_TYPES = new Set(['mergeNode', 'groupByNode', 'functionNode']);
+
 // ── Hook ───────────────────────────────────────────────────────────────────
 
 export function useLineageState() {
@@ -157,12 +172,6 @@ export function useLineageState() {
     setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, stage } } : n));
   }, [setNodes, pushHistory]);
 
-  callbacks.current = {
-    onLabelChange, onCodeChange, onStageChange,
-    ...dfCbs, ...mgCbs, ...fnCbs, ...ftCbs, ...gbCbs, ...cmCbs,
-    ...rnCbs, ...ctCbs, ...trCbs,
-  };
-
   // ── Derived state ─────────────────────────────────────────────────────────
 
   const nodesWithCallbacks = useMemo(() => {
@@ -220,6 +229,20 @@ export function useLineageState() {
     if (changed) setNodes(updated);
   }, [nodes, edges, setNodes]);
 
+  // If a companion DF is manually deleted, clear the stale companionId on its operator.
+  useEffect(() => {
+    const companionIds = new Set(nodes.filter((n) => n.data?._companionOf).map((n) => n.id));
+    let changed = false;
+    const updated = nodes.map((n) => {
+      if (n.data?.companionId && !companionIds.has(n.data.companionId)) {
+        changed = true;
+        return { ...n, data: { ...n.data, companionId: undefined } };
+      }
+      return n;
+    });
+    if (changed) setNodes(updated);
+  }, [nodes, setNodes]);
+
   const selectedDFs = useMemo(
     () => nodes.filter((n) => n.selected && (n.type === 'dataFrameNode' || n.type === 'mergeNode')),
     [nodes]
@@ -269,7 +292,8 @@ export function useLineageState() {
         id: uid(),
         selected: true,
         position: { x: n.position.x + offset, y: n.position.y + offset },
-        data: cloneNodeData(n.type, n.data),
+        // Strip companionId so the cloned operator doesn't reference the original's companion
+        data: { ...cloneNodeData(n.type, n.data), companionId: undefined },
       }));
       setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...pasted]);
       return;
@@ -277,41 +301,86 @@ export function useLineageState() {
     if (e.key === 'Delete' || e.key === 'Backspace') {
       pushHistory();
       setEdges((eds) => eds.filter((ed) => !ed.selected));
-      setNodes((nds) => {
-        const toDelete = new Set(nds.filter((n) => n.selected).map((n) => n.id));
-        if (toDelete.size > 0) setEdges((eds) => eds.filter((e) => !toDelete.has(e.source) && !toDelete.has(e.target)));
-        return nds.filter((n) => !n.selected);
-      });
+      const selected = nodesRef.current.filter((n) => n.selected);
+      const toDelete = new Set(selected.map((n) => n.id));
+      // Cascade: also delete companion DFs when their operator is deleted
+      for (const n of selected) {
+        if (n.data?.companionId) toDelete.add(n.data.companionId);
+      }
+      setNodes((nds) => nds.filter((n) => !toDelete.has(n.id)));
+      setEdges((eds) => eds.filter((e) => !toDelete.has(e.source) && !toDelete.has(e.target)));
     }
   }, [undo, redo, pushHistory, setEdges, setNodes]);
 
   // Generic add — looks up config by type, calls config.make()
+  // Operator nodes (merge/groupby/function) auto-spawn a companion DF to the right.
   const addNodeOfType = useCallback((type, x, y, dataOverrides) => {
     const entry = NODE_REGISTRY.find((e) => e.config.type === type);
     if (!entry) return;
     pushHistory();
-    setNodes((nds) => [...nds, entry.config.make(x, y, dataOverrides)]);
-  }, [setNodes, pushHistory]);
+    const newNode = entry.config.make(x, y, dataOverrides);
+    if (COMPANION_TYPES.has(type)) {
+      const companionId = uid();
+      const label = newNode.data.label ? `${newNode.data.label}_output` : 'output';
+      const companion = dataframeConfig.makeCompanion(companionId, newNode.id, x + 420, y, [], label);
+      const nodeWithCompanion = { ...newNode, data: { ...newNode.data, companionId } };
+      setNodes((nds) => [...nds, nodeWithCompanion, companion]);
+      setEdges((eds) => [...eds, makeCompanionEdge(newNode.id, companionId)]);
+    } else {
+      setNodes((nds) => [...nds, newNode]);
+    }
+  }, [setNodes, setEdges, pushHistory]);
 
+  // Cascade-delete: when an operator is deleted, also remove its companion DF.
   const deleteNode = useCallback((nodeId) => {
     pushHistory();
-    setNodes((nds) => nds.filter((n) => n.id !== nodeId));
-    setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+    const opNode = nodesRef.current.find((n) => n.id === nodeId);
+    const toDelete = new Set([nodeId]);
+    if (opNode?.data?.companionId) toDelete.add(opNode.data.companionId);
+    setNodes((nds) => nds.filter((n) => !toDelete.has(n.id)));
+    setEdges((eds) => eds.filter((e) => !toDelete.has(e.source) && !toDelete.has(e.target)));
   }, [setNodes, setEdges, pushHistory]);
+
+  // Manually create a companion DF for an operator that doesn't have one yet.
+  const onCreateCompanion = useCallback((operatorNodeId) => {
+    const opNode = nodesRef.current.find((n) => n.id === operatorNodeId);
+    if (!opNode || opNode.data?.companionId) return;
+    pushHistory();
+    const companionId = uid();
+    const label = opNode.data.label ? `${opNode.data.label}_output` : 'output';
+    const companion = dataframeConfig.makeCompanion(
+      companionId, operatorNodeId,
+      opNode.position.x + 420, opNode.position.y,
+      [], label
+    );
+    setNodes((nds) => [
+      ...nds.map((n) => n.id === operatorNodeId ? { ...n, data: { ...n.data, companionId } } : n),
+      companion,
+    ]);
+    setEdges((eds) => [...eds, makeCompanionEdge(operatorNodeId, companionId)]);
+  }, [setNodes, setEdges, pushHistory]);
+
+  // All per-frame callbacks bundled for nodesWithCallbacks injection
+  callbacks.current = {
+    onLabelChange, onCodeChange, onStageChange, onCreateCompanion,
+    ...dfCbs, ...mgCbs, ...fnCbs, ...ftCbs, ...gbCbs, ...cmCbs,
+    ...rnCbs, ...ctCbs, ...trCbs,
+  };
 
   const createMerge = useCallback((dfs) => {
     pushHistory();
     const [a, b] = dfs;
     const midX = (a.position.x + b.position.x) / 2 + 20;
     const midY = (a.position.y + b.position.y) / 2 - 40;
-    const mergeNodeDef = mergeConfig.make(midX, midY);
-    const resultDFDef = dataframeConfig.make(midX + 420, midY, { label: 'merge_result', attributes: [] });
-    setNodes((nds) => [...nds, mergeNodeDef, resultDFDef]);
+    const companionId = uid();
+    const mergeNodeDef = { ...mergeConfig.make(midX, midY), data: { ...mergeConfig.make(midX, midY).data, companionId } };
+    const companion = dataframeConfig.makeCompanion(companionId, mergeNodeDef.id, midX + 380, midY, [], 'merge_result');
+    setNodes((nds) => [...nds, mergeNodeDef, companion]);
     setEdges((eds) => [
       ...eds,
       makeMergeEdge(a.id, 'df-out', mergeNodeDef.id, 'left-in'),
       makeMergeEdge(b.id, 'df-out', mergeNodeDef.id, 'right-in'),
-      makeMergeEdge(mergeNodeDef.id, 'df-out', resultDFDef.id, 'df-in'),
+      makeCompanionEdge(mergeNodeDef.id, companionId),
     ]);
   }, [setNodes, setEdges, pushHistory]);
 
@@ -327,5 +396,6 @@ export function useLineageState() {
     nodesWithCallbacks, selectedDFs,
     onConnect, onKeyDown, undo, redo,
     addNodeOfType, deleteNode, createMerge, restoreState,
+    onCreateCompanion,
   };
 }
