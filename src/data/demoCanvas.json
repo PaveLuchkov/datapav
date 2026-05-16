@@ -1,30 +1,58 @@
 {
   "nodes": [
-
     {
       "id": "cmt-intro",
       "type": "commentNode",
-      "position": { "x": 60, "y": -160 },
+      "position": {
+        "x": 125.40206385587044,
+        "y": -208.74596280992807
+      },
       "data": {
         "color": "blue",
         "text": "👋 Welcome to Lineage Editor!\n\nThis demo shows an e-commerce order pipeline.\n\n→ Click ◎ on any column to trace its lineage\n→ Double-click any label to rename it\n→ Drag columns between DataFrames\n→ Cmd+K to search columns across the graph\n→ Use →○ buttons to create output DataFrames"
+      },
+      "width": 348,
+      "height": 280,
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "width": 348,
+        "height": 280
+      },
+      "resizing": false,
+      "positionAbsolute": {
+        "x": 125.40206385587044,
+        "y": -208.74596280992807
       }
     },
-
     {
       "id": "cmt-analysis",
       "type": "commentNode",
-      "position": { "x": 2020, "y": -160 },
+      "position": {
+        "x": 2020,
+        "y": -160
+      },
       "data": {
         "color": "green",
         "text": "🔀 Two analysis paths from the enriched table:\n\n1. GroupBy → revenue aggregated by country & segment\n2. Function → custom LTV score per order\n\nCompanion DFs (marked ⊙) are auto-managed — their columns update when the operator changes."
-      }
+      },
+      "width": 359,
+      "height": 246,
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "width": 359,
+        "height": 246
+      },
+      "resizing": false
     },
-
     {
       "id": "df-orders",
       "type": "dataFrameNode",
-      "position": { "x": 60, "y": 180 },
+      "position": {
+        "x": 61.2289948959892,
+        "y": 180
+      },
       "data": {
         "label": "orders_raw",
         "stage": "raw",
@@ -32,17 +60,27 @@
         "attributes": [
           { "id": "attr-o-1", "name": "order_id",    "type": "string" },
           { "id": "attr-o-2", "name": "customer_id", "type": "string" },
-          { "id": "attr-o-3", "name": "amount",      "type": "string" },
+          { "id": "attr-o-3", "name": "amount",      "type": "int"    },
           { "id": "attr-o-4", "name": "status",      "type": "string" },
-          { "id": "attr-o-5", "name": "order_date",  "type": "string" }
+          { "id": "attr-o-5", "name": "order_date",  "type": "date"   }
         ]
+      },
+      "width": 200,
+      "height": 187,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 61.2289948959892,
+        "y": 180
       }
     },
-
     {
       "id": "df-customers",
       "type": "dataFrameNode",
-      "position": { "x": 60, "y": 570 },
+      "position": {
+        "x": 55.376312984679245,
+        "y": 447.472294094
+      },
       "data": {
         "label": "customers",
         "stage": "raw",
@@ -53,83 +91,133 @@
           { "id": "attr-c-3", "name": "country",     "type": "string" },
           { "id": "attr-c-4", "name": "segment",     "type": "string" }
         ]
+      },
+      "width": 200,
+      "height": 159,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 55.376312984679245,
+        "y": 447.472294094
       }
     },
-
     {
       "id": "node-filter",
       "type": "filterNode",
-      "position": { "x": 390, "y": 180 },
+      "position": {
+        "x": 326.838284075189,
+        "y": 180
+      },
       "data": {
         "label": "completed_only",
         "stage": null,
         "code": "",
         "conditions": [
-          { "id": "cond-1", "op": "WHERE", "expr": "status == 'completed'" }
+          { "id": "cond-1", "op": "WHERE", "expr": "@status == 'completed'" }
         ],
         "companionId": "df-filtered"
+      },
+      "width": 300,
+      "height": 109,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 326.838284075189,
+        "y": 180
       }
     },
-
     {
       "id": "df-filtered",
       "type": "dataFrameNode",
-      "position": { "x": 710, "y": 180 },
+      "position": {
+        "x": 670.7101582649784,
+        "y": 180
+      },
       "data": {
         "_companionOf": "node-filter",
         "label": "orders_filtered",
         "stage": null,
         "code": "",
         "attributes": [
-          { "id": "attr-of-1", "name": "order_id",    "type": "string" },
-          { "id": "attr-of-2", "name": "customer_id", "type": "string" },
-          { "id": "attr-of-3", "name": "amount",      "type": "string" },
-          { "id": "attr-of-4", "name": "status",      "type": "string" },
-          { "id": "attr-of-5", "name": "order_date",  "type": "string" }
+          { "id": "attr-o-1", "name": "order_id",    "type": "string" },
+          { "id": "attr-o-2", "name": "customer_id", "type": "string" },
+          { "id": "attr-o-3", "name": "amount",      "type": "int"    },
+          { "id": "attr-o-4", "name": "status",      "type": "string" },
+          { "id": "attr-o-5", "name": "order_date",  "type": "date"   }
         ]
+      },
+      "width": 200,
+      "height": 187,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 670.7101582649784,
+        "y": 180
       }
     },
-
     {
       "id": "node-transform",
       "type": "transformNode",
-      "position": { "x": 1020, "y": 180 },
+      "position": {
+        "x": 931.8119438030942,
+        "y": 180
+      },
       "data": {
         "label": "clean_orders",
         "stage": null,
         "code": "# amount was imported as string — cast to float\n# fill missing dates, drop status (already filtered)",
         "ops": [
-          { "id": "op-1", "type": "astype",          "args": { "col": "amount",     "type_val": "float"  } },
-          { "id": "op-2", "type": "fillna",           "args": { "col": "order_date", "value":    "2024-01-01" } },
-          { "id": "op-3", "type": "drop_column",      "args": { "col": "status"     } },
-          { "id": "op-4", "type": "drop_duplicates",  "args": {}                      }
+          { "id": "op-1", "type": "astype",         "args": { "col": "amount",     "type_val": "float"      } },
+          { "id": "op-2", "type": "fillna",          "args": { "col": "order_date", "value": "2024-01-01"   } },
+          { "id": "op-3", "type": "drop_column",     "args": { "col": "status"                              } },
+          { "id": "op-4", "type": "drop_duplicates", "args": {}                                               }
         ],
         "companionId": "df-clean"
+      },
+      "width": 426,
+      "height": 203,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 931.8119438030942,
+        "y": 180
       }
     },
-
     {
       "id": "df-clean",
       "type": "dataFrameNode",
-      "position": { "x": 1360, "y": 180 },
+      "position": {
+        "x": 1408.3414399486296,
+        "y": 179.96273559315816
+      },
       "data": {
         "_companionOf": "node-transform",
         "label": "orders_clean",
         "stage": null,
         "code": "",
         "attributes": [
-          { "id": "attr-oc-1", "name": "order_id",    "type": "string" },
-          { "id": "attr-oc-2", "name": "customer_id", "type": "string" },
-          { "id": "attr-oc-3", "name": "amount",      "type": "float"  },
-          { "id": "attr-oc-4", "name": "order_date",  "type": "string" }
+          { "id": "attr-o-1", "name": "order_id",    "type": "string" },
+          { "id": "attr-o-2", "name": "customer_id", "type": "string" },
+          { "id": "attr-o-3", "name": "amount",      "type": "float"  },
+          { "id": "attr-o-5", "name": "order_date",  "type": "date"   }
         ]
+      },
+      "width": 200,
+      "height": 159,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 1408.3414399486296,
+        "y": 179.96273559315816
       }
     },
-
     {
       "id": "node-rename",
       "type": "renameNode",
-      "position": { "x": 390, "y": 570 },
+      "position": {
+        "x": 1021.1332775912831,
+        "y": 447.47229409399995
+      },
       "data": {
         "label": "normalize_customers",
         "stage": null,
@@ -138,75 +226,113 @@
           { "id": "rm-1", "from": "name", "to": "customer_name" }
         ],
         "companionId": "df-customers-clean"
+      },
+      "width": 312,
+      "height": 103,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 1021.1332775912831,
+        "y": 447.47229409399995
       }
     },
-
     {
       "id": "df-customers-clean",
       "type": "dataFrameNode",
-      "position": { "x": 710, "y": 570 },
+      "position": {
+        "x": 1419.7359568517359,
+        "y": 447.472294094
+      },
       "data": {
         "_companionOf": "node-rename",
         "label": "customers_clean",
         "stage": null,
         "code": "",
         "attributes": [
-          { "id": "attr-cc-1", "name": "customer_id",   "type": "string" },
-          { "id": "attr-cc-2", "name": "customer_name", "type": "string" },
-          { "id": "attr-cc-3", "name": "country",       "type": "string" },
-          { "id": "attr-cc-4", "name": "segment",       "type": "string" }
+          { "id": "attr-c-1", "name": "customer_id",   "type": "string" },
+          { "id": "rm-1",     "name": "customer_name", "type": "string" },
+          { "id": "attr-c-3", "name": "country",       "type": "string" },
+          { "id": "attr-c-4", "name": "segment",       "type": "string" }
         ]
+      },
+      "width": 200,
+      "height": 159,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 1419.7359568517359,
+        "y": 447.472294094
       }
     },
-
     {
       "id": "node-merge",
       "type": "mergeNode",
-      "position": { "x": 1680, "y": 360 },
+      "position": {
+        "x": 1680,
+        "y": 360
+      },
       "data": {
         "label": "enrich_orders",
         "joinType": "left",
-        "keyPairs": [{ "left": "customer_id", "right": "customer_id" }],
+        "keyPairs": [
+          { "left": "customer_id", "right": "customer_id" }
+        ],
         "stage": null,
         "code": "",
         "companionId": "df-merged"
-      }
+      },
+      "width": 373,
+      "height": 145,
+      "selected": false,
+      "dragging": false
     },
-
     {
       "id": "df-merged",
       "type": "dataFrameNode",
-      "position": { "x": 2020, "y": 360 },
+      "position": {
+        "x": 2083.9077073409553,
+        "y": 360
+      },
       "data": {
         "_companionOf": "node-merge",
         "label": "orders_enriched",
         "stage": null,
         "code": "",
         "attributes": [
-          { "id": "attr-me-1", "name": "order_id",      "type": "string" },
-          { "id": "attr-me-2", "name": "customer_id",   "type": "string" },
-          { "id": "attr-me-3", "name": "amount",        "type": "float"  },
-          { "id": "attr-me-4", "name": "order_date",    "type": "string" },
-          { "id": "attr-me-5", "name": "customer_name", "type": "string" },
-          { "id": "attr-me-6", "name": "country",       "type": "string" },
-          { "id": "attr-me-7", "name": "segment",       "type": "string" }
+          { "id": "attr-o-1", "name": "order_id",       "type": "string" },
+          { "id": "attr-o-2", "name": "customer_id",    "type": "string" },
+          { "id": "attr-o-3", "name": "amount",         "type": "float"  },
+          { "id": "attr-o-5", "name": "order_date",     "type": "date"   },
+          { "id": "rm-1",     "name": "customer_name",  "type": "string" },
+          { "id": "attr-c-3", "name": "country",        "type": "string" },
+          { "id": "attr-c-4", "name": "segment",        "type": "string" }
         ]
+      },
+      "width": 200,
+      "height": 243,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 2083.9077073409553,
+        "y": 360
       }
     },
-
     {
       "id": "node-groupby",
       "type": "groupByNode",
-      "position": { "x": 2360, "y": 150 },
+      "position": {
+        "x": 2360,
+        "y": 150
+      },
       "data": {
         "label": "revenue_by_segment",
         "stage": null,
         "code": "",
         "inputs": [
-          { "id": "gb-inp-1", "attrName": "country",   "attrType": "string", "sourceNodeId": "df-merged", "sourceNodeLabel": "orders_enriched", "sourceAttrId": "attr-me-6" },
-          { "id": "gb-inp-2", "attrName": "segment",   "attrType": "string", "sourceNodeId": "df-merged", "sourceNodeLabel": "orders_enriched", "sourceAttrId": "attr-me-7" },
-          { "id": "gb-inp-3", "attrName": "amount",    "attrType": "float",  "sourceNodeId": "df-merged", "sourceNodeLabel": "orders_enriched", "sourceAttrId": "attr-me-3" },
-          { "id": "gb-inp-4", "attrName": "order_id",  "attrType": "string", "sourceNodeId": "df-merged", "sourceNodeLabel": "orders_enriched", "sourceAttrId": "attr-me-1" }
+          { "id": "gb-inp-1", "attrName": "country",  "attrType": "string", "sourceNodeId": "df-merged", "sourceNodeLabel": "orders_enriched", "sourceAttrId": "attr-me-6" },
+          { "id": "gb-inp-2", "attrName": "segment",  "attrType": "string", "sourceNodeId": "df-merged", "sourceNodeLabel": "orders_enriched", "sourceAttrId": "attr-me-7" },
+          { "id": "gb-inp-3", "attrName": "amount",   "attrType": "float",  "sourceNodeId": "df-merged", "sourceNodeLabel": "orders_enriched", "sourceAttrId": "attr-me-3" },
+          { "id": "gb-inp-4", "attrName": "order_id", "attrType": "string", "sourceNodeId": "df-merged", "sourceNodeLabel": "orders_enriched", "sourceAttrId": "attr-me-1" }
         ],
         "groupByInputIds": ["gb-inp-1", "gb-inp-2"],
         "aggregations": [
@@ -214,31 +340,45 @@
           { "id": "agg-2", "inputId": "gb-inp-4", "func": "count", "outputName": "order_count"   }
         ],
         "companionId": "df-revenue"
-      }
+      },
+      "width": 572,
+      "height": 220
     },
-
     {
       "id": "df-revenue",
       "type": "dataFrameNode",
-      "position": { "x": 2780, "y": 150 },
+      "position": {
+        "x": 2963.787933696726,
+        "y": 150
+      },
       "data": {
         "_companionOf": "node-groupby",
         "label": "revenue_summary",
         "stage": "final",
         "code": "",
         "attributes": [
-          { "id": "attr-rs-1", "name": "country",       "type": "string" },
-          { "id": "attr-rs-2", "name": "segment",       "type": "string" },
-          { "id": "attr-rs-3", "name": "total_revenue", "type": "float"  },
-          { "id": "attr-rs-4", "name": "order_count",   "type": "int"    }
+          { "id": "gb-inp-1", "name": "country",       "type": "string" },
+          { "id": "gb-inp-2", "name": "segment",       "type": "string" },
+          { "id": "agg-1",    "name": "total_revenue", "type": "float"  },
+          { "id": "agg-2",    "name": "order_count",   "type": "int"    }
         ]
+      },
+      "width": 208,
+      "height": 159,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 2963.787933696726,
+        "y": 150
       }
     },
-
     {
       "id": "node-function",
       "type": "functionNode",
-      "position": { "x": 2360, "y": 590 },
+      "position": {
+        "x": 2359.5,
+        "y": 616
+      },
       "data": {
         "label": "compute_ltv",
         "stage": null,
@@ -252,181 +392,222 @@
           { "id": "fn-out-2", "name": "customer_tier", "type": "string"                             }
         ],
         "companionId": "df-ltv"
+      },
+      "width": 360,
+      "height": 297,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 2359.5,
+        "y": 616
       }
     },
-
     {
       "id": "df-ltv",
       "type": "dataFrameNode",
-      "position": { "x": 2780, "y": 590 },
+      "position": {
+        "x": 2780,
+        "y": 590
+      },
       "data": {
         "_companionOf": "node-function",
         "label": "customer_ltv",
         "stage": "final",
         "code": "",
         "attributes": [
-          { "id": "attr-ltv-1", "name": "ltv_score",     "type": "float"  },
-          { "id": "attr-ltv-2", "name": "customer_tier", "type": "string" }
+          { "id": "fn-out-1", "name": "ltv_score",     "type": "float"  },
+          { "id": "fn-out-2", "name": "customer_tier", "type": "string" }
         ]
-      }
+      },
+      "width": 200,
+      "height": 103,
+      "selected": false,
+      "dragging": false
     }
-
   ],
-
   "edges": [
-
     {
       "id": "e-orders-filter",
-      "source": "df-orders", "sourceHandle": "df-out",
-      "target": "node-filter", "targetHandle": "df-in",
+      "source": "df-orders",
+      "sourceHandle": "df-out",
+      "target": "node-filter",
+      "targetHandle": "df-in",
       "type": "smoothstep",
       "style": { "stroke": "#334155", "strokeWidth": 2 }
     },
     {
       "id": "e-filter-companion",
-      "source": "node-filter", "sourceHandle": "df-out",
-      "target": "df-filtered", "targetHandle": "df-in",
+      "source": "node-filter",
+      "sourceHandle": "df-out",
+      "target": "df-filtered",
+      "targetHandle": "df-in",
       "type": "smoothstep",
       "style": { "stroke": "#334155", "strokeWidth": 1.5, "strokeDasharray": "5 4" },
       "data": { "isCompanionEdge": true }
     },
-
     {
       "id": "e-filtered-transform",
-      "source": "df-filtered", "sourceHandle": "df-out",
-      "target": "node-transform", "targetHandle": "df-in",
+      "source": "df-filtered",
+      "sourceHandle": "df-out",
+      "target": "node-transform",
+      "targetHandle": "df-in",
       "type": "smoothstep",
       "style": { "stroke": "#334155", "strokeWidth": 2 }
     },
     {
       "id": "e-transform-companion",
-      "source": "node-transform", "sourceHandle": "df-out",
-      "target": "df-clean", "targetHandle": "df-in",
+      "source": "node-transform",
+      "sourceHandle": "df-out",
+      "target": "df-clean",
+      "targetHandle": "df-in",
       "type": "smoothstep",
       "style": { "stroke": "#334155", "strokeWidth": 1.5, "strokeDasharray": "5 4" },
       "data": { "isCompanionEdge": true }
     },
-
     {
       "id": "e-customers-rename",
-      "source": "df-customers", "sourceHandle": "df-out",
-      "target": "node-rename", "targetHandle": "df-in",
+      "source": "df-customers",
+      "sourceHandle": "df-out",
+      "target": "node-rename",
+      "targetHandle": "df-in",
       "type": "smoothstep",
       "style": { "stroke": "#334155", "strokeWidth": 2 }
     },
     {
       "id": "e-rename-companion",
-      "source": "node-rename", "sourceHandle": "df-out",
-      "target": "df-customers-clean", "targetHandle": "df-in",
+      "source": "node-rename",
+      "sourceHandle": "df-out",
+      "target": "df-customers-clean",
+      "targetHandle": "df-in",
       "type": "smoothstep",
       "style": { "stroke": "#334155", "strokeWidth": 1.5, "strokeDasharray": "5 4" },
       "data": { "isCompanionEdge": true }
     },
-
     {
       "id": "e-clean-merge-left",
-      "source": "df-clean", "sourceHandle": "df-out",
-      "target": "node-merge", "targetHandle": "left-in",
+      "source": "df-clean",
+      "sourceHandle": "df-out",
+      "target": "node-merge",
+      "targetHandle": "left-in",
       "type": "smoothstep",
       "style": { "stroke": "#7c3aed", "strokeWidth": 2 }
     },
     {
       "id": "e-customers-merge-right",
-      "source": "df-customers-clean", "sourceHandle": "df-out",
-      "target": "node-merge", "targetHandle": "right-in",
+      "source": "df-customers-clean",
+      "sourceHandle": "df-out",
+      "target": "node-merge",
+      "targetHandle": "right-in",
       "type": "smoothstep",
       "style": { "stroke": "#9333ea", "strokeWidth": 2 }
     },
     {
       "id": "e-merge-companion",
-      "source": "node-merge", "sourceHandle": "df-out",
-      "target": "df-merged", "targetHandle": "df-in",
+      "source": "node-merge",
+      "sourceHandle": "df-out",
+      "target": "df-merged",
+      "targetHandle": "df-in",
       "type": "smoothstep",
       "style": { "stroke": "#334155", "strokeWidth": 1.5, "strokeDasharray": "5 4" },
       "data": { "isCompanionEdge": true }
     },
-
     {
       "id": "e-merged-groupby",
-      "source": "df-merged", "sourceHandle": "df-out",
-      "target": "node-groupby", "targetHandle": "df-in",
+      "source": "df-merged",
+      "sourceHandle": "df-out",
+      "target": "node-groupby",
+      "targetHandle": "df-in",
       "type": "smoothstep",
       "style": { "stroke": "#334155", "strokeWidth": 2 }
     },
     {
       "id": "e-groupby-companion",
-      "source": "node-groupby", "sourceHandle": "df-out",
-      "target": "df-revenue", "targetHandle": "df-in",
+      "source": "node-groupby",
+      "sourceHandle": "df-out",
+      "target": "df-revenue",
+      "targetHandle": "df-in",
       "type": "smoothstep",
       "style": { "stroke": "#334155", "strokeWidth": 1.5, "strokeDasharray": "5 4" },
       "data": { "isCompanionEdge": true }
     },
-
     {
       "id": "e-merged-function",
-      "source": "df-merged", "sourceHandle": "df-out",
-      "target": "node-function", "targetHandle": "df-in",
+      "source": "df-merged",
+      "sourceHandle": "df-out",
+      "target": "node-function",
+      "targetHandle": "df-in",
       "type": "smoothstep",
       "style": { "stroke": "#334155", "strokeWidth": 2 }
     },
     {
       "id": "e-function-companion",
-      "source": "node-function", "sourceHandle": "df-out",
-      "target": "df-ltv", "targetHandle": "df-in",
+      "source": "node-function",
+      "sourceHandle": "df-out",
+      "target": "df-ltv",
+      "targetHandle": "df-in",
       "type": "smoothstep",
       "style": { "stroke": "#334155", "strokeWidth": 1.5, "strokeDasharray": "5 4" },
       "data": { "isCompanionEdge": true }
     },
-
     {
       "id": "e-gb-inp-1",
-      "source": "df-merged", "sourceHandle": "attr-me-6-source",
-      "target": "node-groupby", "targetHandle": "gb-inp-1-target",
+      "source": "df-merged",
+      "sourceHandle": "attr-me-6-source",
+      "target": "node-groupby",
+      "targetHandle": "gb-inp-1-target",
       "type": "smoothstep",
       "style": { "stroke": "#0ea5e9", "strokeWidth": 1 },
       "markerEnd": { "type": "arrowclosed", "color": "#0ea5e9" }
     },
     {
       "id": "e-gb-inp-2",
-      "source": "df-merged", "sourceHandle": "attr-me-7-source",
-      "target": "node-groupby", "targetHandle": "gb-inp-2-target",
+      "source": "df-merged",
+      "sourceHandle": "attr-me-7-source",
+      "target": "node-groupby",
+      "targetHandle": "gb-inp-2-target",
       "type": "smoothstep",
       "style": { "stroke": "#0ea5e9", "strokeWidth": 1 },
       "markerEnd": { "type": "arrowclosed", "color": "#0ea5e9" }
     },
     {
       "id": "e-gb-inp-3",
-      "source": "df-merged", "sourceHandle": "attr-me-3-source",
-      "target": "node-groupby", "targetHandle": "gb-inp-3-target",
+      "source": "df-merged",
+      "sourceHandle": "attr-me-3-source",
+      "target": "node-groupby",
+      "targetHandle": "gb-inp-3-target",
       "type": "smoothstep",
       "style": { "stroke": "#0ea5e9", "strokeWidth": 1 },
       "markerEnd": { "type": "arrowclosed", "color": "#0ea5e9" }
     },
     {
       "id": "e-gb-inp-4",
-      "source": "df-merged", "sourceHandle": "attr-me-1-source",
-      "target": "node-groupby", "targetHandle": "gb-inp-4-target",
+      "source": "df-merged",
+      "sourceHandle": "attr-me-1-source",
+      "target": "node-groupby",
+      "targetHandle": "gb-inp-4-target",
       "type": "smoothstep",
       "style": { "stroke": "#0ea5e9", "strokeWidth": 1 },
       "markerEnd": { "type": "arrowclosed", "color": "#0ea5e9" }
     },
-
     {
       "id": "e-fn-inp-1",
-      "source": "df-merged", "sourceHandle": "attr-me-3-source",
-      "target": "node-function", "targetHandle": "fn-inp-1-target",
+      "source": "df-merged",
+      "sourceHandle": "attr-me-3-source",
+      "target": "node-function",
+      "targetHandle": "fn-inp-1-target",
       "type": "smoothstep",
       "style": { "stroke": "#10b981", "strokeWidth": 1.5 },
       "markerEnd": { "type": "arrowclosed", "color": "#10b981" }
     },
     {
       "id": "e-fn-inp-2",
-      "source": "df-merged", "sourceHandle": "attr-me-7-source",
-      "target": "node-function", "targetHandle": "fn-inp-2-target",
+      "source": "df-merged",
+      "sourceHandle": "attr-me-7-source",
+      "target": "node-function",
+      "targetHandle": "fn-inp-2-target",
       "type": "smoothstep",
       "style": { "stroke": "#10b981", "strokeWidth": 1.5 },
       "markerEnd": { "type": "arrowclosed", "color": "#10b981" }
     }
-
   ]
 }
