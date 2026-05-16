@@ -4,13 +4,6 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
-// ResizeObserver fires this benign warning during rapid layout changes (e.g. NodeResizer).
-// stopImmediatePropagation prevents CRA's dev overlay from catching it.
-window.addEventListener('error', (e) => {
-  if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
-    e.stopImmediatePropagation();
-  }
-});
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

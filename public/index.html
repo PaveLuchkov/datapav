@@ -12,6 +12,14 @@
     <meta property="og:description" content="Visual editor for documenting DataFrame lineage — nodes, columns, joins, and transformations." />
     <meta property="og:type" content="website" />
     <title>Lineage Editor</title>
+    <!-- Suppress benign ResizeObserver loop warning before CRA error overlay registers -->
+    <script>
+      window.addEventListener('error', function(e) {
+        if (e.message && e.message.indexOf('ResizeObserver loop') !== -1) {
+          e.stopImmediatePropagation();
+        }
+      });
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
