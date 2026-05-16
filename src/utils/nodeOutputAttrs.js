@@ -193,8 +193,15 @@ export function traceColumnUpstream(nodeId, colName, edges, nodes) {
     }
 
     case 'functionNode': {
-      if (!(node.data.outputs || []).some((o) => o.name === colName)) return null;
-      return { nodeId, colName, nodeType: node.type, nodeLabel: node.data.label, upstream: null, createdHere: true };
+      const output = (node.data.outputs || []).find((o) => o.name === colName);
+      if (!output) return null;
+      const step = { nodeId, colName, nodeType: node.type, nodeLabel: node.data.label, upstream: null };
+      if (output.fromInputId) {
+        const inp = (node.data.inputs || []).find((i) => i.id === output.fromInputId);
+        if (inp) step.upstream = traceColumnUpstream(inp.sourceNodeId, inp.attrName, edges, nodes);
+        return step;
+      }
+      return { ...step, createdHere: true };
     }
 
     case 'transformNode': {
@@ -270,7 +277,7 @@ function _propagateCol(targetNode, colName, edges, nodes) {
     }
 
     case 'functionNode':
-      return (targetNode.data.inputs || []).some((i) => i.attrName === colName) ? colName : null;
+      return (targetNode.data.outputs || []).some((o) => o.name === colName) ? colName : null;
 
     default:
       return null;

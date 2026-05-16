@@ -68,8 +68,32 @@ export function useFunctionCallbacks(setNodes, setEdges, pushHistory) {
     ));
   }, [setNodes, pushHistory]);
 
+  // Link an output to an input column so tracing passes through the function.
+  // When fromInputId is set, name and type auto-sync to the input's values.
+  const onFunctionOutputLinkChange = useCallback((funcNodeId, outputId, fromInputId) => {
+    pushHistory();
+    setNodes((nds) => nds.map((n) => {
+      if (n.id !== funcNodeId) return n;
+      const inputs = n.data.inputs || [];
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          outputs: n.data.outputs.map((o) => {
+            if (o.id !== outputId) return o;
+            if (!fromInputId) return { ...o, fromInputId: null };
+            const inp = inputs.find((i) => i.id === fromInputId);
+            if (!inp) return { ...o, fromInputId };
+            return { ...o, fromInputId, name: inp.attrName, type: inp.attrType || 'string' };
+          }),
+        },
+      };
+    }));
+  }, [setNodes, pushHistory]);
+
   return {
     onFunctionInputDrop, onDeleteFunctionInput,
-    onAddFunctionOutput, onDeleteFunctionOutput, onFunctionOutputChange, onFunctionOutputTypeChange,
+    onAddFunctionOutput, onDeleteFunctionOutput, onFunctionOutputChange,
+    onFunctionOutputTypeChange, onFunctionOutputLinkChange,
   };
 }

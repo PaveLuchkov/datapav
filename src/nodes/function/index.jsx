@@ -20,6 +20,7 @@ export default function FunctionNode({ id, data }) {
     onDeleteFunctionOutput,
     onFunctionOutputChange,
     onFunctionOutputTypeChange,
+    onFunctionOutputLinkChange,
     onCodeChange, onStageChange, onCreateCompanion,
     trackerHighlight, code, stage,
   } = data;
@@ -216,6 +217,7 @@ export default function FunctionNode({ id, data }) {
           )}
           {outputs.map((output) => {
             const tracked = isTrackedAttr(output.name);
+            const isLinked = !!(output.fromInputId && inputs.find((i) => i.id === output.fromInputId));
             return (
             <div
               key={output.id}
@@ -229,6 +231,26 @@ export default function FunctionNode({ id, data }) {
                 background: tracked ? 'rgba(245,158,11,0.08)' : undefined,
               }}
             >
+              {/* Link select: pick an input to wire this output to for tracing */}
+              <select
+                value={output.fromInputId || ''}
+                onChange={(e) => { stop(e); onFunctionOutputLinkChange(id, output.id, e.target.value || null); }}
+                onMouseDown={stop}
+                title={isLinked ? 'Linked to input — click to change' : 'Link to input for lineage tracing'}
+                className="flex-shrink-0 rounded outline-none cursor-pointer"
+                style={{
+                  fontSize: 9, padding: '1px 2px', marginRight: 4,
+                  background: isLinked ? 'rgba(16,185,129,0.15)' : 'transparent',
+                  border: `1px solid ${isLinked ? colors.handleFill : '#166534'}`,
+                  color: isLinked ? colors.handleFill : '#4ade8066',
+                  maxWidth: 64,
+                }}
+              >
+                <option value="">∅ new</option>
+                {inputs.map((inp) => (
+                  <option key={inp.id} value={inp.id}>{inp.attrName}</option>
+                ))}
+              </select>
               <TypeBadge
                 type={output.type}
                 onClick={(e) => {
