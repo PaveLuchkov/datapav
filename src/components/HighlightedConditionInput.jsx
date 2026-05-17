@@ -206,12 +206,12 @@ export default function HighlightedConditionInput({
                   transition: 'background 0.1s',
                 }}
               >
-                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.72rem', color: '#fed7aa' }}>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.72rem', color: '#fed7aa' }}>
                   @{attr.name}
                 </span>
                 <span style={{
                   fontSize: 9,
-                  fontFamily: 'ui-monospace, monospace',
+                  fontFamily: "'JetBrains Mono', monospace",
                   color: meta.color,
                   background: meta.bg,
                   borderRadius: 3,

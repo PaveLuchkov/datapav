@@ -20,7 +20,7 @@ function OpRow({ nodeId, op, columns, onUpdate, onDelete, stop, isTrackedAttr })
   const colInputStyle = {
     flex: '1 1 0', minWidth: 0,
     background: 'transparent', outline: 'none',
-    fontSize: '0.75rem', fontFamily: 'ui-monospace, monospace',
+    fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace",
     color: '#fed7aa', caretColor: '#f97316',
     borderBottom: `1px solid #7c2d12`,
   };

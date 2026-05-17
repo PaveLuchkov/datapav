@@ -138,7 +138,7 @@ export default function DataFrameNode({ id, data }) {
         />
         {/* Companion badge — shown when this DF is an operator output */}
         {_companionOf && (
-          <span className="ml-1 select-none flex-shrink-0" style={{ fontSize: 9, color: '#334155', fontFamily: 'monospace' }}>
+          <span className="ml-1 select-none flex-shrink-0" style={{ fontSize: 9, color: '#334155', fontFamily: "'JetBrains Mono', monospace" }}>
             ⊙
           </span>
         )}
@@ -274,7 +274,7 @@ function TypeBadge({ type, onClick }) {
         padding: '0 4px',
         color: meta.color,
         background: meta.bg,
-        fontFamily: 'monospace',
+        fontFamily: "'JetBrains Mono', monospace",
       }}
     >
       {meta.abbr}

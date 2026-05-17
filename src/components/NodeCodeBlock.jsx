@@ -21,7 +21,7 @@ export default function NodeCodeBlock({ nodeId, code, onCodeChange, borderColor 
           fontSize: '0.7rem',
           lineHeight: 1.6,
           padding: '6px 10px',
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+          fontFamily: "'JetBrains Mono', monospace",
           outline: 'none',
           resize: 'vertical',
           border: 'none',

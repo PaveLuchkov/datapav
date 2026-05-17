@@ -9,7 +9,7 @@ function createWindow() {
     height: 900,
     minWidth: 960,
     minHeight: 600,
-    title: 'DataLoom',
+    title: 'DataPav',
     backgroundColor: '#0f172a', // prevents white flash before app loads
     webPreferences: {
       contextIsolation: true,

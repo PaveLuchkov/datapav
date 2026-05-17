@@ -19,7 +19,7 @@ const FIELD_STYLE = {
   fontSize: '0.75rem',
   padding: '4px 8px',
   borderRadius: '0.25rem',
-  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+  fontFamily: "'JetBrains Mono', monospace",
   outline: 'none',
   width: '100%',
   display: 'block',

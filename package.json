@@ -28,8 +28,8 @@
     "electron:build": "react-scripts build && electron-builder --win --x64"
   },
   "build": {
-    "appId": "com.dataloom.app",
-    "productName": "DataLoom",
+    "appId": "com.datapav.app",
+    "productName": "DataPav",
     "directories": {
       "output": "dist"
     },

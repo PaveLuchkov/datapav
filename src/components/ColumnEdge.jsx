@@ -46,7 +46,7 @@ export default function ColumnEdge({
                 fontSize: 10,
                 padding: '1px 5px',
                 borderRadius: 4,
-                fontFamily: 'ui-monospace, monospace',
+                fontFamily: "'JetBrains Mono', monospace",
                 whiteSpace: 'nowrap',
               }}
             >

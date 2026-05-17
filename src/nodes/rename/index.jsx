@@ -51,7 +51,7 @@ export default function RenameNode({ id, data }) {
   const inputStyle = {
     flex: '1 1 0', minWidth: 0,
     background: 'transparent', outline: 'none',
-    fontSize: '0.75rem', fontFamily: 'ui-monospace, monospace',
+    fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace",
     color: '#a5b4fc', caretColor: '#818cf8',
     borderBottom: '1px solid #3730a3',
   };

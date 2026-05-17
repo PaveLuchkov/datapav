@@ -52,7 +52,7 @@ function DownstreamTree({ items, depth, onNavigate }) {
     <div style={{ paddingLeft: depth * 10 }}>
       {items.map((item, i) => (
         <div key={`${item.nodeId}-${i}`}>
-          <div className="flex items-center gap-1 px-2" style={{ color: '#334155', fontSize: 9, fontFamily: 'monospace', height: 12 }}>
+          <div className="flex items-center gap-1 px-2" style={{ color: '#334155', fontSize: 9, fontFamily: "'JetBrains Mono', monospace", height: 12 }}>
             {'└─'}
           </div>
           <TraceStep step={item} isCurrent={false} onNavigate={onNavigate} />
@@ -124,7 +124,7 @@ export default function TracePanel({ traceState, traceResult, onClose, onNavigat
               <TraceStep key={`up-${step.nodeId}-${i}`} step={step} isCurrent={false} onNavigate={onNavigate} />
             ))}
             {/* Arrow */}
-            <div className="px-3 py-0.5 text-xs select-none" style={{ color: '#1e3a5f', fontFamily: 'monospace' }}>↓</div>
+            <div className="px-3 py-0.5 text-xs select-none" style={{ color: '#1e3a5f', fontFamily: "'JetBrains Mono', monospace" }}>↓</div>
           </>
         )}
 

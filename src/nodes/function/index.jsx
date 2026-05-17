@@ -315,7 +315,7 @@ function TypeBadge({ type, onClick }) {
         padding: '0 4px',
         color: meta.color,
         background: meta.bg,
-        fontFamily: 'monospace',
+        fontFamily: "'JetBrains Mono', monospace",
       }}
     >
       {meta.abbr}

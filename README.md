@@ -1,4 +1,4 @@
-# DataLoom — DataFrame Lineage Editor
+# DataPav — DataFrame Lineage Editor
 
 > A visual canvas for mapping data pipelines and interactively tracing column-level dependencies.
 
@@ -12,7 +12,7 @@ Built for data analysts and engineers who want to *draw* how data flows rather t
 
 When refactoring complex analytical scripts or parsing legacy repositories, the same bottleneck always appears: **how to quickly trace the origin of a specific data attribute.** Once a column passes through a sequence of joins, filters, renames, and custom transformations, its trail is easily lost in the codebase.
 
-DataLoom lets you build a visual graph of your pipeline and click any column to instantly highlight its full upstream path — all locally, with no backend or sign-up.
+DataPav lets you build a visual graph of your pipeline and click any column to instantly highlight its full upstream path — all locally, with no backend or sign-up.
 
 ---
 
@@ -110,7 +110,7 @@ On first load the app shows a built-in demo canvas with all node types, lineage 
 
 ## Alternatives
 
-| Tool | When to choose DataLoom instead |
+| Tool | When to choose DataPav instead |
 |---|---|
 | **Miro / Draw.io** | When you need interactive column-level trace, not just static boxes and arrows |
 | **dbt docs** | For projects built without dbt, or quick sketching without boilerplate YAML |

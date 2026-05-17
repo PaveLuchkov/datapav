@@ -13,7 +13,7 @@ function TypeBadge({ type }) {
   return (
     <span
       className="mr-1 rounded flex-shrink-0 select-none"
-      style={{ fontSize: 9, lineHeight: '14px', padding: '0 4px', color: meta.color, background: meta.bg, fontFamily: 'monospace' }}
+      style={{ fontSize: 9, lineHeight: '14px', padding: '0 4px', color: meta.color, background: meta.bg, fontFamily: "'JetBrains Mono', monospace" }}
     >
       {meta.abbr}
     </span>
