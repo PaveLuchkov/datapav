@@ -180,6 +180,7 @@ export default function DataFrameNode({ id, data }) {
         {attributes.map((attr, index) => {
           const tracked = isTrackedAttr(attr.name);
           const isTracing = traceColName === attr.name;
+          const isBroken = !!attr.broken;
           return (
           <React.Fragment key={attr.id}>
             <div
@@ -192,17 +193,22 @@ export default function DataFrameNode({ id, data }) {
               className="relative flex items-center group hover:bg-blue-900/30 transition-colors cursor-grab active:cursor-grabbing"
               style={{
                 paddingLeft: 14, paddingRight: 14, minHeight: ATTR_ROW_HEIGHT,
-                background: isTracing ? 'rgba(6,182,212,0.12)' : tracked ? 'rgba(245,158,11,0.08)' : undefined,
+                background: isBroken
+                  ? 'rgba(239,68,68,0.08)'
+                  : isTracing ? 'rgba(6,182,212,0.12)' : tracked ? 'rgba(245,158,11,0.08)' : undefined,
               }}
             >
               <Handle
                 type="target" position={Position.Left} id={`${attr.id}-target`}
                 style={{ left: -5, top: '50%', transform: 'translateY(-50%)', position: 'absolute' }}
               />
-              <span className="text-blue-600 mr-1.5 text-xs opacity-0 group-hover:opacity-100 transition-opacity select-none">⠿</span>
+              {isBroken
+                ? <span className="mr-1.5 text-xs select-none flex-shrink-0" style={{ color: '#f87171' }}>!</span>
+                : <span className="text-blue-600 mr-1.5 text-xs opacity-0 group-hover:opacity-100 transition-opacity select-none">⠿</span>
+              }
               <TypeBadge
                 type={attr.type || 'string'}
-                onClick={_companionOf ? undefined : (e) => {
+                onClick={(_companionOf || isBroken) ? undefined : (e) => {
                   e.stopPropagation();
                   const idx = ATTR_TYPES.indexOf(attr.type || 'string');
                   const next = ATTR_TYPES[(idx + 1) % ATTR_TYPES.length];
@@ -211,12 +217,17 @@ export default function DataFrameNode({ id, data }) {
               />
               <EditableText
                 value={attr.name}
-                onChange={_companionOf ? undefined : (val) => onAttributeChange(id, attr.id, val)}
-                className={isTracing ? 'text-cyan-300 text-xs flex-1 font-bold' : tracked ? 'text-amber-300 text-xs flex-1 font-bold' : 'text-blue-100 text-xs flex-1'}
+                onChange={(_companionOf || isBroken) ? undefined : (val) => onAttributeChange(id, attr.id, val)}
+                className={
+                  isBroken ? 'text-red-400 text-xs flex-1 line-through' :
+                  isTracing ? 'text-cyan-300 text-xs flex-1 font-bold' :
+                  tracked ? 'text-amber-300 text-xs flex-1 font-bold' :
+                  'text-blue-100 text-xs flex-1'
+                }
                 placeholder="column"
               />
-              {/* Trace button — appears on hover */}
-              {onTraceColumn && (
+              {/* Trace button — appears on hover, hidden for broken columns */}
+              {onTraceColumn && !isBroken && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onTraceColumn(id, attr.name); }}
                   onMouseDown={(e) => e.stopPropagation()}
@@ -227,12 +238,12 @@ export default function DataFrameNode({ id, data }) {
                   ◎
                 </button>
               )}
-              {!_companionOf && (
+              {(!_companionOf || isBroken) && (
                 <button
                   onClick={(e) => handleDeleteAttribute(e, attr.id)}
                   onMouseDown={(e) => e.stopPropagation()}
-                  className="ml-1 text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-300 text-xs w-4 h-4 flex items-center justify-center transition-opacity"
-                  title="Delete attribute"
+                  className={`ml-1 text-red-400 hover:text-red-300 text-xs w-4 h-4 flex items-center justify-center transition-opacity ${isBroken ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                  title={isBroken ? 'Remove broken column' : 'Delete attribute'}
                 >
                   ×
                 </button>

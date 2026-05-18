@@ -267,6 +267,30 @@ export function useLineageState() {
     if (anyChanged) setNodes(updated);
   }, [nodes, edges, setNodes]);
 
+  // Auto-heal broken attributes: when a DF with broken columns gains upstream sources,
+  // attributes whose names match are restored (broken: false) with the live type.
+  useEffect(() => {
+    let anyChanged = false;
+    const updated = nodes.map((n) => {
+      if (n.type !== 'dataFrameNode') return n;
+      const hasBroken = (n.data.attributes || []).some((a) => a.broken);
+      if (!hasBroken) return n;
+      const upstreamAttrs = getUpstreamAttrs(n.id, edges, nodes);
+      if (!upstreamAttrs.length) return n;
+      const byName = new Map(upstreamAttrs.map((a) => [a.name, a]));
+      let nodeChanged = false;
+      const healed = (n.data.attributes || []).map((a) => {
+        if (!a.broken || !byName.has(a.name)) return a;
+        nodeChanged = true;
+        return { ...a, broken: false, type: byName.get(a.name).type };
+      });
+      if (!nodeChanged) return n;
+      anyChanged = true;
+      return { ...n, data: { ...n.data, attributes: healed } };
+    });
+    if (anyChanged) setNodes(updated);
+  }, [nodes, edges, setNodes]);
+
   // If a companion DF is manually deleted, clear the stale companionId on its operator.
   useEffect(() => {
     const companionIds = new Set(nodes.filter((n) => n.data?._companionOf).map((n) => n.id));
@@ -341,11 +365,30 @@ export function useLineageState() {
       setEdges((eds) => eds.filter((ed) => !ed.selected));
       const selected = nodesRef.current.filter((n) => n.selected);
       const toDelete = new Set(selected.map((n) => n.id));
-      // Cascade: also delete companion DFs when their operator is deleted
+      // Companion DFs are orphaned (not deleted) so downstream chains stay intact.
+      // Their attributes are marked broken; they heal when a matching source is reconnected.
+      const toOrphan = new Set();
       for (const n of selected) {
-        if (n.data?.companionId) toDelete.add(n.data.companionId);
+        if (n.data?.companionId) {
+          const companion = nodesRef.current.find((nd) => nd.id === n.data.companionId);
+          if (companion) toOrphan.add(n.data.companionId);
+        }
       }
-      setNodes((nds) => nds.filter((n) => !toDelete.has(n.id)));
+      setNodes((nds) =>
+        nds
+          .filter((n) => !toDelete.has(n.id))
+          .map((n) => {
+            if (!toOrphan.has(n.id)) return n;
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                _companionOf: undefined,
+                attributes: (n.data.attributes || []).map((a) => ({ ...a, broken: true })),
+              },
+            };
+          })
+      );
       setEdges((eds) => eds.filter((e) => !toDelete.has(e.source) && !toDelete.has(e.target)));
     }
   }, [undo, redo, pushHistory, setEdges, setNodes]);
