@@ -368,27 +368,45 @@ export function useLineageState() {
       // Any DF directly connected to a deleted operator's df-out has its columns marked broken
       // so downstream chains stay intact. This works regardless of companion status, so the
       // behaviour persists through reconnection cycles (delete → reconnect → delete again).
+      // toOrphan: DF ids whose ALL columns go broken (operator deleted)
+      // brokenAttrIds: specific attribute ids that go broken (source DF deleted)
       const toOrphan = new Set();
+      const brokenAttrIds = new Set();
       for (const n of selected) {
-        if (n.type === 'dataFrameNode') continue;
-        for (const e of edgesRef.current) {
-          if (e.source !== n.id || e.sourceHandle !== 'df-out') continue;
-          const target = nodesRef.current.find((nd) => nd.id === e.target && nd.type === 'dataFrameNode');
-          if (target) toOrphan.add(target.id);
+        if (n.type !== 'dataFrameNode') {
+          // Operator deleted — break all columns of directly connected DFs
+          for (const e of edgesRef.current) {
+            if (e.source !== n.id || e.sourceHandle !== 'df-out') continue;
+            const target = nodesRef.current.find((nd) => nd.id === e.target && nd.type === 'dataFrameNode');
+            if (target) toOrphan.add(target.id);
+          }
+        } else {
+          // DataFrame deleted — break only the specific columns in other DFs
+          // that were wired from this DF via column-level edges
+          for (const e of edgesRef.current) {
+            if (e.source !== n.id || !e.sourceHandle?.endsWith('-source')) continue;
+            const targetAttrId = e.targetHandle?.replace('-target', '');
+            if (targetAttrId) brokenAttrIds.add(targetAttrId);
+          }
         }
       }
       setNodes((nds) =>
         nds
           .filter((n) => !toDelete.has(n.id))
           .map((n) => {
-            if (!toOrphan.has(n.id)) return n;
+            const isOrphan = toOrphan.has(n.id);
+            const hasAttrHits = n.type === 'dataFrameNode' &&
+              (n.data.attributes || []).some((a) => brokenAttrIds.has(a.id));
+            if (!isOrphan && !hasAttrHits) return n;
             return {
               ...n,
               data: {
                 ...n.data,
-                // Clear _companionOf only when its owning operator is the one being deleted
                 _companionOf: toDelete.has(n.data._companionOf) ? undefined : n.data._companionOf,
-                attributes: (n.data.attributes || []).map((a) => ({ ...a, broken: true })),
+                attributes: (n.data.attributes || []).map((a) => ({
+                  ...a,
+                  broken: isOrphan || brokenAttrIds.has(a.id) ? true : a.broken,
+                })),
               },
             };
           })
