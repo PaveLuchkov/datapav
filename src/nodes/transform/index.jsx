@@ -126,6 +126,40 @@ function OpRow({ nodeId, op, columns, onUpdate, onDelete, stop, isTrackedAttr })
         />
       )}
 
+      {op.type === 'add_column' && (
+        <>
+          <input
+            value={op.args.col ?? ''}
+            onChange={(e) => onUpdate(nodeId, op.id, 'col', e.target.value)}
+            onClick={stop}
+            onMouseDown={stop}
+            onKeyDown={stop}
+            placeholder="col_name"
+            className="flex-1 min-w-0 bg-transparent outline-none text-xs font-mono"
+            style={{ color: '#86efac', caretColor: '#f97316', borderBottom: `1px solid #7c2d12` }}
+          />
+          <select
+            value={op.args.type_val ?? 'string'}
+            onChange={(e) => { e.stopPropagation(); onUpdate(nodeId, op.id, 'type_val', e.target.value); }}
+            onMouseDown={stop}
+            className="text-xs rounded outline-none cursor-pointer flex-shrink-0"
+            style={{ background: '#3a1505', border: `1px solid ${colors.border}`, color: '#fdba74', padding: '1px 4px' }}
+          >
+            {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <input
+            value={op.args.value ?? ''}
+            onChange={(e) => onUpdate(nodeId, op.id, 'value', e.target.value)}
+            onClick={stop}
+            onMouseDown={stop}
+            onKeyDown={stop}
+            placeholder="= value"
+            className="flex-1 min-w-0 bg-transparent outline-none text-xs font-mono"
+            style={{ color: '#fed7aa', caretColor: '#f97316', borderBottom: `1px solid #7c2d12` }}
+          />
+        </>
+      )}
+
       <button
         onClick={(e) => { stop(e); onDelete(nodeId, op.id); }}
         onMouseDown={stop}

@@ -12,7 +12,7 @@ const ROW_HEIGHT = 24;
 
 export default function FunctionNode({ id, data }) {
   const {
-    label, inputs, outputs, connectedDFs, companionId,
+    label, inputs, outputs, connectedDFs, companionId, extendMode,
     onLabelChange,
     onFunctionInputDrop,
     onDeleteFunctionInput,
@@ -21,9 +21,12 @@ export default function FunctionNode({ id, data }) {
     onFunctionOutputChange,
     onFunctionOutputTypeChange,
     onFunctionOutputLinkChange,
+    onFunctionExtendModeChange,
     onCodeChange, onStageChange, onCreateCompanion,
     trackerHighlight, code, stage,
   } = data;
+
+  const hasDfIn = (connectedDFs || []).length > 0;
 
   const [codeOpen, setCodeOpen] = useState(false);
 
@@ -121,6 +124,16 @@ export default function FunctionNode({ id, data }) {
           style={{ fontSize: 10, color: colors.handleFill, opacity: codeOpen ? 1 : 0.4 }}
         >
           {codeOpen ? '[/]' : '</>'}
+        </button>
+        {/* Extend mode toggle: pass source DF columns through to companion */}
+        <button
+          onClick={(e) => { e.stopPropagation(); if (hasDfIn) onFunctionExtendModeChange(id, !extendMode); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          title={hasDfIn ? (extendMode ? 'Extend mode ON — source columns pass through' : 'Extend mode OFF — companion shows only outputs') : 'Connect a DataFrame first'}
+          className="flex-shrink-0 select-none text-xs font-mono transition-colors"
+          style={{ color: extendMode ? '#34d399' : hasDfIn ? 'rgba(74,222,128,0.3)' : 'rgba(74,222,128,0.1)', cursor: hasDfIn ? 'pointer' : 'default' }}
+        >
+          ⊕
         </button>
         {/* Companion button */}
         <button

@@ -15,10 +15,15 @@ export function computeNodeOutputAttributes(node, edges, nodes) {
     case 'dataFrameNode':
       return node.data.attributes || [];
 
-    case 'functionNode':
-      return (node.data.outputs || []).map((o) => ({
+    case 'functionNode': {
+      const ownOutputs = (node.data.outputs || []).map((o) => ({
         id: o.id, name: o.name, type: o.type || 'string',
       }));
+      if (!node.data.extendMode) return ownOutputs;
+      const sourceAttrs = getUpstreamAttrs(node.id, edges, nodes);
+      const ownNames = new Set(ownOutputs.map((o) => o.name));
+      return [...sourceAttrs.filter((a) => !ownNames.has(a.name)), ...ownOutputs];
+    }
 
     case 'filterNode':
     case 'concatNode':
@@ -39,13 +44,19 @@ export function computeNodeOutputAttributes(node, edges, nodes) {
       const upstream = getUpstreamAttrs(node.id, edges, nodes);
       const typeOverrides = new Map();
       const droppedCols = new Set();
+      const addedCols = [];
       for (const op of (node.data.ops || [])) {
         if (op.type === 'astype' && op.args?.col && op.args?.type_val) typeOverrides.set(op.args.col, op.args.type_val);
         if (op.type === 'drop_column' && op.args?.col) droppedCols.add(op.args.col);
+        if (op.type === 'add_column' && op.args?.col) addedCols.push({ id: op.id, name: op.args.col, type: op.args.type_val || 'string' });
       }
-      return upstream
-        .filter((a) => !droppedCols.has(a.name))
-        .map((a) => typeOverrides.has(a.name) ? { ...a, type: typeOverrides.get(a.name) } : a);
+      const upstreamNames = new Set(upstream.map((a) => a.name));
+      return [
+        ...upstream
+          .filter((a) => !droppedCols.has(a.name))
+          .map((a) => typeOverrides.has(a.name) ? { ...a, type: typeOverrides.get(a.name) } : a),
+        ...addedCols.filter((a) => !upstreamNames.has(a.name)),
+      ];
     }
 
     case 'groupByNode': {
@@ -186,20 +197,33 @@ export function traceColumnUpstream(nodeId, colName, edges, nodes) {
 
     case 'functionNode': {
       const output = (node.data.outputs || []).find((o) => o.name === colName);
-      if (!output) return null;
-      const step = { nodeId, colName, nodeType: node.type, nodeLabel: node.data.label, upstream: null };
-      if (output.fromInputId) {
-        const inp = (node.data.inputs || []).find((i) => i.id === output.fromInputId);
-        if (inp) step.upstream = traceColumnUpstream(inp.sourceNodeId, inp.attrName, edges, nodes);
-        return step;
+      if (output) {
+        const step = { nodeId, colName, nodeType: node.type, nodeLabel: node.data.label, upstream: null };
+        if (output.fromInputId) {
+          const inp = (node.data.inputs || []).find((i) => i.id === output.fromInputId);
+          if (inp) step.upstream = traceColumnUpstream(inp.sourceNodeId, inp.attrName, edges, nodes);
+          return step;
+        }
+        return { ...step, createdHere: true };
       }
-      return { ...step, createdHere: true };
+      // extend mode: pass-through column from source DF
+      if (node.data.extendMode) {
+        const step = { nodeId, colName, nodeType: node.type, nodeLabel: node.data.label, upstream: null };
+        for (const e of edges.filter((e) => e.target === nodeId && e.targetHandle === 'df-in')) {
+          const r = traceColumnUpstream(e.source, colName, edges, nodes);
+          if (r) { step.upstream = r; break; }
+        }
+        return step.upstream ? step : null;
+      }
+      return null;
     }
 
     case 'transformNode': {
-      // Column dropped by this node doesn't exist in its output
       const ops = node.data.ops || [];
       if (ops.some((op) => op.type === 'drop_column' && op.args?.col === colName)) return null;
+      if (ops.some((op) => op.type === 'add_column' && op.args?.col === colName)) {
+        return { nodeId, colName, nodeType: node.type, nodeLabel: node.data.label, upstream: null, createdHere: true };
+      }
       const step = { nodeId, colName, nodeType: node.type, nodeLabel: node.data.label, upstream: null };
       for (const e of edges.filter((e) => e.target === nodeId && e.targetHandle === 'df-in')) {
         const r = traceColumnUpstream(e.source, colName, edges, nodes);
@@ -269,7 +293,7 @@ function _propagateCol(targetNode, colName, edges, nodes) {
     }
 
     case 'functionNode':
-      return (targetNode.data.outputs || []).some((o) => o.name === colName) ? colName : null;
+      return computeNodeOutputAttributes(targetNode, edges, nodes).some((a) => a.name === colName) ? colName : null;
 
     default:
       return null;

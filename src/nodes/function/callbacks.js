@@ -91,9 +91,16 @@ export function useFunctionCallbacks(setNodes, setEdges, pushHistory) {
     }));
   }, [setNodes, pushHistory]);
 
+  const onFunctionExtendModeChange = useCallback((funcNodeId, extendMode) => {
+    pushHistory();
+    setNodes((nds) => nds.map((n) =>
+      n.id === funcNodeId ? { ...n, data: { ...n.data, extendMode } } : n
+    ));
+  }, [setNodes, pushHistory]);
+
   return {
     onFunctionInputDrop, onDeleteFunctionInput,
     onAddFunctionOutput, onDeleteFunctionOutput, onFunctionOutputChange,
-    onFunctionOutputTypeChange, onFunctionOutputLinkChange,
+    onFunctionOutputTypeChange, onFunctionOutputLinkChange, onFunctionExtendModeChange,
   };
 }

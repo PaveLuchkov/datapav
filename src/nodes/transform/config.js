@@ -8,7 +8,7 @@ const colors = {
   handleBorder:'#1c0e02',
 };
 
-export const TRANSFORM_OPS = ['drop_duplicates', 'dropna', 'fillna', 'astype', 'sort_values', 'drop_column'];
+export const TRANSFORM_OPS = ['drop_duplicates', 'dropna', 'fillna', 'astype', 'sort_values', 'drop_column', 'add_column'];
 
 const transformConfig = {
   type: 'transformNode',
