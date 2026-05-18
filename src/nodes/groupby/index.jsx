@@ -192,37 +192,49 @@ export default function GroupByNode({ id, data }) {
                 const meta = ATTR_TYPE_META[inp.attrType] || ATTR_TYPE_META.string;
                 const isKey = safeKeys.includes(inp.id);
                 const tracked = isTrackedAttr(inp.attrName);
+                const isBroken = !!inp.broken;
                 return (
                   <div
                     key={inp.id}
                     className="relative flex items-center group hover:bg-sky-900/20 transition-colors"
-                    style={{ paddingLeft: 22, paddingRight: 8, minHeight: ROW_HEIGHT, background: tracked ? 'rgba(245,158,11,0.08)' : undefined }}
+                    style={{
+                      paddingLeft: 22, paddingRight: 8, minHeight: ROW_HEIGHT,
+                      background: isBroken ? 'rgba(239,68,68,0.08)' : tracked ? 'rgba(245,158,11,0.08)' : undefined,
+                    }}
                   >
                     <Handle
                       type="target" position={Position.Left} id={`${inp.id}-target`}
                       style={{
                         left: -5, top: '50%', transform: 'translateY(-50%)',
-                        position: 'absolute', background: meta.color,
+                        position: 'absolute', background: isBroken ? '#ef4444' : meta.color,
                         border: `2px solid ${colors.handleBorder}`, width: 8, height: 8,
                       }}
                     />
-                    {/* Toggle group-by key */}
-                    <button
-                      onClick={(e) => { stop(e); onToggleGroupByKey(id, inp.id); }}
-                      onMouseDown={stop}
-                      title={isKey ? 'Remove from group by' : 'Add to group by'}
-                      className="mr-1.5 flex-shrink-0 transition-opacity"
-                      style={{ color: isKey ? '#38bdf8' : '#164e63', fontSize: 11, lineHeight: 1 }}
+                    {isBroken
+                      ? <span className="mr-1.5 text-xs select-none flex-shrink-0" style={{ color: '#f87171' }}>!</span>
+                      : <button
+                          onClick={(e) => { stop(e); onToggleGroupByKey(id, inp.id); }}
+                          onMouseDown={stop}
+                          title={isKey ? 'Remove from group by' : 'Add to group by'}
+                          className="mr-1.5 flex-shrink-0 transition-opacity"
+                          style={{ color: isKey ? '#38bdf8' : '#164e63', fontSize: 11, lineHeight: 1 }}
+                        >
+                          {isKey ? '⊞' : '○'}
+                        </button>
+                    }
+                    <span
+                      className={`text-xs flex-1 truncate ${isBroken ? 'line-through' : ''}`}
+                      style={{
+                        color: isBroken ? '#f87171' : tracked ? '#fcd34d' : (isKey ? '#7dd3fc' : '#4a7a99'),
+                        fontWeight: tracked ? 700 : undefined,
+                      }}
                     >
-                      {isKey ? '⊞' : '○'}
-                    </button>
-                    <span className="text-xs flex-1 truncate" style={{ color: tracked ? '#fcd34d' : (isKey ? '#7dd3fc' : '#4a7a99'), fontWeight: tracked ? 700 : undefined }}>
                       {inp.attrName}
                     </span>
                     <button
                       onClick={(e) => { stop(e); onDeleteGroupByInput(id, inp.id); }}
                       onMouseDown={stop}
-                      className="ml-1 text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-300 text-xs w-4 h-4 flex items-center justify-center transition-opacity flex-shrink-0"
+                      className={`ml-1 text-red-400 ${isBroken ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} hover:text-red-300 text-xs w-4 h-4 flex items-center justify-center transition-opacity flex-shrink-0`}
                     >
                       ×
                     </button>

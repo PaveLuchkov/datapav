@@ -183,32 +183,36 @@ export default function FunctionNode({ id, data }) {
               )}
               {group.items.map((inp) => {
                 const tracked = isTrackedAttr(inp.attrName);
+                const isBroken = !!inp.broken;
                 return (
                 <div
                   key={inp.id}
                   className="relative flex items-center group hover:bg-emerald-900/30 transition-colors"
                   style={{
                     paddingLeft: 22, paddingRight: 8, minHeight: ROW_HEIGHT,
-                    background: tracked ? 'rgba(245,158,11,0.08)' : undefined,
+                    background: isBroken ? 'rgba(239,68,68,0.08)' : tracked ? 'rgba(245,158,11,0.08)' : undefined,
                   }}
                 >
                   <Handle
                     type="target" position={Position.Left} id={`${inp.id}-target`}
                     style={{
                       left: -5, top: '50%', transform: 'translateY(-50%)',
-                      position: 'absolute', background: colors.handleFill,
+                      position: 'absolute', background: isBroken ? '#ef4444' : colors.handleFill,
                       border: `2px solid ${colors.handleBorder}`, width: 8, height: 8,
                     }}
                   />
-                  <TypeBadge type={inp.attrType || 'string'} />
+                  {isBroken
+                    ? <span className="mr-1 text-xs select-none flex-shrink-0" style={{ color: '#f87171' }}>!</span>
+                    : <TypeBadge type={inp.attrType || 'string'} />
+                  }
                   <span
-                    className="text-xs flex-1 truncate"
-                    style={{ color: tracked ? '#fcd34d' : '#d1fae5', fontWeight: tracked ? 700 : undefined }}
+                    className={`text-xs flex-1 truncate ${isBroken ? 'line-through' : ''}`}
+                    style={{ color: isBroken ? '#f87171' : tracked ? '#fcd34d' : '#d1fae5', fontWeight: tracked ? 700 : undefined }}
                   >{inp.attrName}</span>
                   <button
                     onClick={(e) => { stop(e); onDeleteFunctionInput(id, inp.id); }}
                     onMouseDown={stop}
-                    className="ml-1 text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-300 text-xs w-4 h-4 flex items-center justify-center transition-opacity flex-shrink-0"
+                    className={`ml-1 text-red-400 ${isBroken ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} hover:text-red-300 text-xs w-4 h-4 flex items-center justify-center transition-opacity flex-shrink-0`}
                   >
                     ×
                   </button>

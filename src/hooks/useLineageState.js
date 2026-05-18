@@ -370,24 +370,30 @@ export function useLineageState() {
       // behaviour persists through reconnection cycles (delete → reconnect → delete again).
       // toOrphan: DF ids whose ALL columns go broken (operator deleted)
       // brokenAttrIds: specific attribute ids that go broken (source DF deleted)
-      const toOrphan = new Set();
-      const brokenAttrIds = new Set();
+      const toOrphan = new Set();           // DF ids: all columns go broken
+      const brokenAttrIds = new Set();      // specific DF attr ids go broken
+      const brokenNodeInputs = new Map();   // nodeId → Set<inputId> for GroupBy/Function
       for (const n of selected) {
         if (n.type !== 'dataFrameNode') {
-          // Operator deleted — break all columns of directly connected DFs
           for (const e of edgesRef.current) {
             if (e.source !== n.id || e.sourceHandle !== 'df-out') continue;
             const target = nodesRef.current.find((nd) => nd.id === e.target && nd.type === 'dataFrameNode');
             if (target) toOrphan.add(target.id);
           }
         } else {
-          // DataFrame deleted — break only the specific columns in other DFs
-          // that were wired from this DF via column-level edges
           for (const e of edgesRef.current) {
             if (e.source !== n.id || !e.sourceHandle?.endsWith('-source')) continue;
             const targetAttrId = e.targetHandle?.replace('-target', '');
             if (targetAttrId) brokenAttrIds.add(targetAttrId);
           }
+        }
+        // GroupBy and FunctionNode inputs referencing this deleted node
+        for (const nd of nodesRef.current) {
+          if (nd.type !== 'groupByNode' && nd.type !== 'functionNode') continue;
+          const hit = (nd.data.inputs || []).filter((inp) => inp.sourceNodeId === n.id);
+          if (!hit.length) continue;
+          if (!brokenNodeInputs.has(nd.id)) brokenNodeInputs.set(nd.id, new Set());
+          for (const inp of hit) brokenNodeInputs.get(nd.id).add(inp.id);
         }
       }
       setNodes((nds) =>
@@ -397,7 +403,8 @@ export function useLineageState() {
             const isOrphan = toOrphan.has(n.id);
             const hasAttrHits = n.type === 'dataFrameNode' &&
               (n.data.attributes || []).some((a) => brokenAttrIds.has(a.id));
-            if (!isOrphan && !hasAttrHits) return n;
+            const inputHits = brokenNodeInputs.get(n.id);
+            if (!isOrphan && !hasAttrHits && !inputHits) return n;
             return {
               ...n,
               data: {
@@ -407,6 +414,11 @@ export function useLineageState() {
                   ...a,
                   broken: isOrphan || brokenAttrIds.has(a.id) ? true : a.broken,
                 })),
+                inputs: inputHits
+                  ? (n.data.inputs || []).map((inp) =>
+                      inputHits.has(inp.id) ? { ...inp, broken: true } : inp
+                    )
+                  : n.data.inputs,
               },
             };
           })
