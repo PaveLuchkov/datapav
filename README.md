@@ -108,6 +108,14 @@ On first load the app shows a built-in demo canvas with all node types, lineage 
 
 ---
 
+## Next features
+
+- Save DataFrames. Save commonly used dataframes in your own pack and use it between all canvases
+- Expand "Function". Funtions that contain internal logic can be expanded to walk through their paths
+- More fluent refactoring process. Current iteration does not fullfil mid-path refactoring breaking connections.
+  
+---
+
 ## Alternatives
 
 | Tool | When to choose DataPav instead |
