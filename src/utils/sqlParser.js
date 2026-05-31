@@ -41,6 +41,56 @@ function extractFromTable(fromClause) {
   return match ? match[1].split('.').pop() : null;
 }
 
+// Map a SQL column type to one of the editor's ATTR_TYPES (string|int|float|date|bool).
+export function mapSqlType(sqlType) {
+  const t = (sqlType || '').toLowerCase();
+  if (/\b(bool|boolean|bit)\b/.test(t)) return 'bool';
+  if (/\b(int|integer|bigint|smallint|tinyint|serial|int2|int4|int8)\b/.test(t)) return 'int';
+  if (/\b(float|double|real|decimal|numeric|money|number|dec)\b/.test(t)) return 'float';
+  if (/\b(date|datetime|timestamp|timestamptz|time)\b/.test(t)) return 'date';
+  return 'string';
+}
+
+// Table-level constraint keywords that are NOT columns inside CREATE TABLE (...).
+const CONSTRAINT_RE = /^(PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|CHECK|CONSTRAINT|KEY|INDEX|EXCLUDE|PERIOD)\b/i;
+
+/**
+ * Parse a CREATE TABLE statement and return:
+ *   { tableName: string|null, columns: [{ name, type }] }
+ * where type is one of ATTR_TYPES. Skips table-level constraints. Returns an
+ * empty column list if the input isn't a CREATE TABLE.
+ */
+export function parseCreateTable(sql) {
+  const clean = sql
+    .replace(/--[^\n]*/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const head = clean.match(/CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["'`]?([a-zA-Z_][a-zA-Z0-9_.]*)["'`]?\s*\(/i);
+  if (!head) return { tableName: null, columns: [] };
+  const tableName = head[1].split('.').pop();
+
+  // Slice the balanced parens after the table name.
+  const open = clean.indexOf('(', head.index);
+  let depth = 0, end = -1;
+  for (let i = open; i < clean.length; i++) {
+    if (clean[i] === '(') depth++;
+    else if (clean[i] === ')') { depth--; if (depth === 0) { end = i; break; } }
+  }
+  if (end === -1) return { tableName, columns: [] };
+
+  const body = clean.slice(open + 1, end);
+  const columns = [];
+  for (const part of splitTopLevel(body)) {
+    if (!part || CONSTRAINT_RE.test(part)) continue;
+    const m = part.match(/^["'`]?([a-zA-Z_][a-zA-Z0-9_]*)["'`]?\s+(.+)$/);
+    if (!m) continue;
+    columns.push({ name: m[1], type: mapSqlType(m[2]) });
+  }
+  return { tableName, columns };
+}
+
 /**
  * Parse a SQL SELECT statement and return:
  *   { columns: string[], tableName: string|null }
