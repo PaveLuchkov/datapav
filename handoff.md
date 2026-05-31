@@ -11,6 +11,10 @@ End state imagined: open the app, drag columns across DataFrames to show where
 each column came from, place operator nodes to document transformations, export the diagram
 as PNG or save it for the next session.
 
+**Planned next features (design docs in `docs/`):** a searchable, connectable
+[Data Catalog / "Data Map"](docs/data-catalog.md) (build first) and
+[Function subgraphs / "drill in"](docs/function-subgraphs.md).
+
 ---
 
 ## What's Built (current state)
