@@ -80,9 +80,13 @@ export function useCatalog() {
     setCatalog((c) => ({ ...c, relationships: c.relationships.filter((r) => r.id !== relId) }));
   }, []);
 
-  // Persist node positions for the Data Map graph view (stored on the entry).
+  // Persist node positions for the Data Map graph view.
   const setEntryPosition = useCallback((entryId, position) => {
     setCatalog((c) => ({ ...c, entries: c.entries.map((e) => e.id === entryId ? { ...e, position } : e) }));
+  }, []);
+
+  const setSourcePosition = useCallback((sourceId, position) => {
+    setCatalog((c) => ({ ...c, sources: c.sources.map((s) => s.id === sourceId ? { ...s, position } : s) }));
   }, []);
 
   return {
@@ -90,6 +94,6 @@ export function useCatalog() {
     addSource, removeSource,
     upsertEntry, removeEntry, publishFromNode,
     addRelationship, removeRelationship,
-    setEntryPosition,
+    setEntryPosition, setSourcePosition,
   };
 }

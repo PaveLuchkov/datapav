@@ -20,6 +20,8 @@ import { computeNodeOutputAttributes, traceColumnUpstream, traceColumnDownstream
 import TracePanel from './components/TracePanel';
 import ValidationPanel from './components/ValidationPanel';
 import { useValidation } from './hooks/useValidation';
+import DataMapView from './catalog/DataMapView';
+import { useCatalog } from './hooks/useCatalog';
 import { useLineageState } from './hooks/useLineageState';
 import { useLineagePersistence } from './hooks/useLineagePersistence';
 import { useCanvasTabs } from './hooks/useCanvasTabs';
@@ -93,6 +95,30 @@ export default function App() {
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2000);
   }, []);
+
+  // ── Catalog / Data Map ─────────────────────────────────────────────────────
+  const catalog = useCatalog();
+  const [viewMode, setViewMode] = useState('pipeline'); // 'pipeline' | 'datamap'
+
+  const handleAddEntryToPipeline = useCallback((entry) => {
+    if (!entry) return;
+    setViewMode('pipeline');
+    // The pipeline canvas is mid-remount here, so its RF instance is stale —
+    // use a fixed flow position rather than screenToFlowPosition.
+    const offset = (catalog.catalog.entries.findIndex((e) => e.id === entry.id) % 5) * 40;
+    addNodeOfType('dataFrameNode', 200 + offset, 160 + offset, {
+      label: entry.name,
+      attributes: (entry.columns || []).map((c) => ({ id: uid(), name: c.name, type: c.type || 'string' })),
+      catalogEntryId: entry.id,
+    });
+  }, [addNodeOfType, catalog.catalog.entries]);
+
+  const handlePublishToCatalog = useCallback(() => {
+    const selected = nodes.filter((n) => n.selected && n.type === 'dataFrameNode');
+    if (!selected.length) { showToast('Select DataFrame(s) to publish to the catalog'); return; }
+    selected.forEach((n) => catalog.publishFromNode(n));
+    showToast(`Published ${selected.length} dataset${selected.length > 1 ? 's' : ''} to catalog`);
+  }, [nodes, catalog, showToast]);
 
   const {
     saveState, loadState, exportPng, saveToFile, loadFromFile,
@@ -447,7 +473,19 @@ export default function App() {
   return (
     <DragProvider>
       <div className="w-screen h-screen bg-slate-900 flex flex-col" onKeyDown={handleKeyDown} tabIndex={0}>
+        {/* Mode toggle: Pipeline ↔ Data Map (catalog) */}
+        <div className="absolute top-3 left-3 z-20 flex items-center gap-0.5 px-1 py-1 rounded-xl"
+          style={{ background: 'rgba(12,12,20,0.93)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 8px 32px rgba(0,0,0,0.55)' }}>
+          <ModeBtn active={viewMode === 'pipeline'} onClick={() => setViewMode('pipeline')}>Pipeline</ModeBtn>
+          <ModeBtn active={viewMode === 'datamap'} onClick={() => setViewMode('datamap')}>Data Map</ModeBtn>
+          {viewMode === 'pipeline' && (
+            <button onClick={handlePublishToCatalog} title="Publish selected DataFrame(s) to the catalog"
+              className="text-xs px-2 py-1 rounded-lg text-slate-300 hover:bg-white/10 transition-colors ml-0.5">⇪ catalog</button>
+          )}
+        </div>
+
         <div ref={reactFlowWrapper} className="flex-1 min-h-0 relative">
+          {viewMode === 'pipeline' ? (
           <ReactFlow
             nodes={trackedNodes}
             edges={displayEdges}
@@ -476,8 +514,12 @@ export default function App() {
               position="bottom-left"
             />
           </ReactFlow>
+          ) : (
+            <DataMapView catalog={catalog.catalog} api={catalog} onAddEntryToPipeline={handleAddEntryToPipeline} />
+          )}
         </div>
 
+        {viewMode === 'pipeline' && (
         <Toolbar
           addableNodes={ADDABLE_NODES}
           onAddNode={addNodeCenter}
@@ -505,6 +547,7 @@ export default function App() {
           validationErrors={validation.errors}
           validationWarnings={validation.warnings}
         />
+        )}
 
         {traceState && (
           <TracePanel
@@ -580,6 +623,7 @@ export default function App() {
           />
         )}
 
+        {viewMode === 'pipeline' && (
         <TabBar
           tabs={tabs}
           activeTabId={activeTabId}
@@ -588,6 +632,7 @@ export default function App() {
           onClose={closeTab}
           onRename={renameTab}
         />
+        )}
 
         {/* Help button */}
         <button
@@ -609,5 +654,17 @@ export default function App() {
         )}
       </div>
     </DragProvider>
+  );
+}
+
+function ModeBtn({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className="text-xs px-2.5 py-1 rounded-lg font-medium transition-colors select-none"
+      style={{ background: active ? 'rgba(56,189,248,0.18)' : 'transparent', color: active ? '#7dd3fc' : '#94a3b8' }}
+    >
+      {children}
+    </button>
   );
 }
