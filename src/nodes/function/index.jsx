@@ -23,6 +23,7 @@ export default function FunctionNode({ id, data }) {
     onFunctionOutputLinkChange,
     onFunctionExtendModeChange,
     onCodeChange, onStageChange, onCreateCompanion,
+    onTraceColumn, traceColName,
     trackerHighlight, code, stage,
   } = data;
 
@@ -283,6 +284,17 @@ export default function FunctionNode({ id, data }) {
                 placeholder="output_col"
                 borderColorClass="border-emerald-400"
               />
+              {onTraceColumn && output.name && (
+                <button
+                  onClick={(e) => { stop(e); onTraceColumn(id, output.name); }}
+                  onMouseDown={stop}
+                  title={`Trace: ${output.name}`}
+                  className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 w-4 h-4 flex items-center justify-center"
+                  style={{ color: traceColName === output.name ? '#06b6d4' : '#475569', fontSize: 10 }}
+                >
+                  ◎
+                </button>
+              )}
               <button
                 onClick={(e) => { stop(e); onDeleteFunctionOutput(id, output.id); }}
                 onMouseDown={stop}

@@ -364,7 +364,16 @@ export default function App() {
     }
 
     return base.map((e) => {
-      if (e.type !== 'columnEdge') return e;
+      // DF-level edges (df-out → df-in): render through ColumnEdge so they get
+      // a hover tooltip with "source → target" node labels. Render-only.
+      if (e.type !== 'columnEdge') {
+        if (e.sourceHandle !== 'df-out') return e;
+        const src = nodes.find((n) => n.id === e.source);
+        const tgt = nodes.find((n) => n.id === e.target);
+        if (!src || !tgt) return e;
+        const label = `${src.data?.label || src.type} → ${tgt.data?.label || tgt.type}`;
+        return { ...e, type: 'columnEdge', data: { ...e.data, label } };
+      }
       const attrId = e.sourceHandle?.slice(0, -7); // strip '-source'
       if (!attrId) return e;
       const src = nodes.find((n) => n.id === e.source);

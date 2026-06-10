@@ -39,6 +39,33 @@ export function getUpstreamAttrs(nodeId, edges, nodes, handleId = 'df-in') {
   return [...seen.values()];
 }
 
+// Union of output attrs over the WHOLE upstream chain (BFS over incoming
+// edges), nearest ancestors first. Used for @column autocomplete, where a
+// column from further up the pipeline is still a useful suggestion even if a
+// middle step renamed or dropped it.
+export function getUpstreamChainAttrs(nodeId, edges, nodes) {
+  const seen = new Map();
+  const visited = new Set([nodeId]);
+  let frontier = [nodeId];
+  while (frontier.length) {
+    const next = [];
+    for (const id of frontier) {
+      for (const e of edges) {
+        if (e.target !== id || visited.has(e.source)) continue;
+        visited.add(e.source);
+        const src = nodes.find((n) => n.id === e.source);
+        if (!src) continue;
+        for (const attr of computeNodeOutputAttributes(src, edges, nodes)) {
+          if (!seen.has(attr.name)) seen.set(attr.name, attr);
+        }
+        next.push(e.source);
+      }
+    }
+    frontier = next;
+  }
+  return [...seen.values()];
+}
+
 // ── Column Lineage Tracing ─────────────────────────────────────────────────
 //
 // traceColumnUpstream: walks the graph backwards from (nodeId, colName)

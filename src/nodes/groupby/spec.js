@@ -31,7 +31,7 @@ const groupbySpec = {
       .filter((a) => a.outputName)
       .map((a) => {
         const inp = inputs.find((i) => i.id === a.inputId);
-        return { id: a.id, name: a.outputName, type: engine.inferAggType(a.func, inp?.attrType) };
+        return { id: a.id, name: a.outputName, type: a.typeOverride || engine.inferAggType(a.func, inp?.attrType) };
       });
     return [...keys, ...aggs];
   },
