@@ -32,6 +32,11 @@ import { nodeTypes, isValidConnection, getMinimapColor, ADDABLE_NODES } from './
 
 const edgeTypes = { columnEdge: ColumnEdge };
 
+// Feature flag: the Data Map / catalog UI is hidden in prod until the feature
+// is finished (sources UI, relationship editing, publish dedupe — see
+// docs/data-catalog.md). Flip to true to bring back the mode toggle.
+const SHOW_DATA_MAP = false;
+
 function extractConditionRefs(data) {
   const exprs = [
     ...(data.conditions || []).map((c) => c.expr || ''),
@@ -514,7 +519,8 @@ export default function App() {
   return (
     <DragProvider>
       <div className="w-screen h-screen bg-slate-900 flex flex-col" onKeyDown={handleKeyDown} tabIndex={0}>
-        {/* Mode toggle: Pipeline ↔ Data Map (catalog) */}
+        {/* Mode toggle: Pipeline ↔ Data Map (catalog) — flagged off until finished */}
+        {SHOW_DATA_MAP && (
         <div className="absolute top-3 left-3 z-20 flex items-center gap-0.5 px-1 py-1 rounded-xl"
           style={{ background: 'rgba(12,12,20,0.93)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 8px 32px rgba(0,0,0,0.55)' }}>
           <ModeBtn active={viewMode === 'pipeline'} onClick={() => setViewMode('pipeline')}>Pipeline</ModeBtn>
@@ -524,6 +530,7 @@ export default function App() {
               className="text-xs px-2 py-1 rounded-lg text-slate-300 hover:bg-white/10 transition-colors ml-0.5">⇪ catalog</button>
           )}
         </div>
+        )}
 
         {/* Subgraph breadcrumb: pipeline › fn › … — click a crumb to exit to it */}
         {viewMode === 'pipeline' && drill.stack.length > 0 && (
