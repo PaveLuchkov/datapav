@@ -90,9 +90,14 @@ export default function App() {
   }, [drill.reset, restoreState]); // eslint-disable-line react-hooks/exhaustive-deps
   const onDrillIn = drill.enterSubgraph;
 
-  // Re-frame the canvas when the surface swaps (drill in/out).
+  // Re-frame the canvas when the surface swaps (drill in/out). Must NOT run on
+  // mount: an early fitView on the still-empty canvas would consume the fit
+  // before the async demo/tab content arrives, stranding the view at max zoom.
   const drillDepth = drill.stack.length;
+  const prevDrillDepth = useRef(drillDepth);
   useEffect(() => {
+    if (prevDrillDepth.current === drillDepth) return;
+    prevDrillDepth.current = drillDepth;
     const t = setTimeout(() => reactFlowInstance.current?.fitView({ padding: 0.2, duration: 300 }), 50);
     return () => clearTimeout(t);
   }, [drillDepth]);
@@ -519,7 +524,7 @@ export default function App() {
 
         {/* Subgraph breadcrumb: pipeline › fn › … — click a crumb to exit to it */}
         {viewMode === 'pipeline' && drill.stack.length > 0 && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 px-3 py-1.5 rounded-xl"
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 px-3 py-1.5 rounded-xl"
             style={{ background: 'rgba(12,12,20,0.93)', backdropFilter: 'blur(20px)', border: '1px solid rgba(52,211,153,0.25)', boxShadow: '0 8px 32px rgba(0,0,0,0.55)' }}>
             <button onClick={drill.exitOne} title="Back (one level up)"
               className="text-xs px-1 rounded text-emerald-300 hover:bg-white/10 transition-colors mr-1">←</button>
