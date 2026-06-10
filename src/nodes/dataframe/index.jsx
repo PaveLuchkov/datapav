@@ -8,7 +8,7 @@ const theme = THEMES.dataframe;
 
 export default function DataFrameNode({ id, data }) {
   const {
-    label, attributes, _companionOf,
+    label, attributes, _companionOf, _proxy,
     onLabelChange, onAttributeChange, onAttributeTypeChange,
     onAddAttribute, onDeleteAttribute,
     onAttributeDrop, onReorderAttributes,
@@ -50,7 +50,9 @@ export default function DataFrameNode({ id, data }) {
     setInsertIndex(null);
   }, [id, attributes, insertIndex, onReorderAttributes, dragRef]);
 
-  const readOnly = !!_companionOf;
+  // Subgraph proxies (_proxy) mirror the outer function's signature — read-only
+  // like companions; their columns are refreshed from the function on drill-in.
+  const readOnly = !!_companionOf || !!_proxy;
 
   return (
     <NodeShell

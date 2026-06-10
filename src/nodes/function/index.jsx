@@ -12,7 +12,8 @@ const ROW_HEIGHT = 24;
 
 export default function FunctionNode({ id, data }) {
   const {
-    label, inputs, outputs, connectedDFs, companionId, extendMode,
+    label, inputs, outputs, connectedDFs, companionId, extendMode, subgraph,
+    onDrillIn,
     onLabelChange,
     onFunctionInputDrop,
     onDeleteFunctionInput,
@@ -126,6 +127,21 @@ export default function FunctionNode({ id, data }) {
         >
           {codeOpen ? '[/]' : '</>'}
         </button>
+        {/* Drill in: open this function's subgraph (body) as its own canvas */}
+        {onDrillIn && (() => {
+          const hasBody = (subgraph?.nodes || []).some((n) => !n.data?._proxy);
+          return (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDrillIn(id); }}
+              onMouseDown={(e) => e.stopPropagation()}
+              title={hasBody ? 'Open subgraph' : 'Drill in — build this function\'s body'}
+              className="flex-shrink-0 select-none text-xs font-mono transition-colors"
+              style={{ color: hasBody ? '#34d399' : 'rgba(74,222,128,0.3)' }}
+            >
+              ⧉
+            </button>
+          );
+        })()}
         {/* Extend mode toggle: pass source DF columns through to companion */}
         <button
           onClick={(e) => { e.stopPropagation(); if (hasDfIn) onFunctionExtendModeChange(id, !extendMode); }}

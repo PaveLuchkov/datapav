@@ -23,6 +23,7 @@ import { useValidation } from './hooks/useValidation';
 import DataMapView from './catalog/DataMapView';
 import { useCatalog } from './hooks/useCatalog';
 import { useLineageState } from './hooks/useLineageState';
+import { useSubgraphDrill } from './hooks/useSubgraphDrill';
 import { useLineagePersistence } from './hooks/useLineagePersistence';
 import { useCanvasTabs } from './hooks/useCanvasTabs';
 import { useContextMenu } from './hooks/useContextMenu';
@@ -75,6 +76,27 @@ export default function App() {
 
   const { applyLayout } = useAutoLayout();
 
+  // ── Function subgraphs (drill in) ──────────────────────────────────────────
+  // The editing surface swaps to a function's subgraph; persistence below gets
+  // the composed ROOT canvas so the tab always saves the whole pipeline.
+  const drill = useSubgraphDrill({ nodes, edges, restoreState });
+  const { composedRoot } = drill;
+
+  // Surface replaced wholesale (tab switch, file/clipboard/URL load) → the
+  // drill stack would point at stale surfaces; drop it first.
+  const restoreRoot = useCallback((newNodes, newEdges) => {
+    drill.reset();
+    restoreState(newNodes, newEdges);
+  }, [drill.reset, restoreState]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onDrillIn = drill.enterSubgraph;
+
+  // Re-frame the canvas when the surface swaps (drill in/out).
+  const drillDepth = drill.stack.length;
+  useEffect(() => {
+    const t = setTimeout(() => reactFlowInstance.current?.fitView({ padding: 0.2, duration: 300 }), 50);
+    return () => clearTimeout(t);
+  }, [drillDepth]);
+
   // ── Validation / lint ────────────────────────────────────────────────────
   const [validationOpen, setValidationOpen] = useState(false);
   const validation = useValidation(nodes, edges);
@@ -123,7 +145,7 @@ export default function App() {
   const {
     saveState, loadState, exportPng, saveToFile, loadFromFile,
     copyToClipboard, pasteFromClipboard, copyShareUrl, loadFromUrlHash,
-  } = useLineagePersistence({ nodes, edges, restoreState, showToast });
+  } = useLineagePersistence({ nodes: composedRoot.nodes, edges: composedRoot.edges, restoreState: restoreRoot, showToast });
 
   // On first mount: URL hash takes priority; otherwise load demo canvas once (first-ever run).
   useEffect(() => {
@@ -137,7 +159,7 @@ export default function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { tabs, activeTabId, switchTab, addTab, closeTab, renameTab } = useCanvasTabs({
-    nodes, edges, restoreState,
+    nodes: composedRoot.nodes, edges: composedRoot.edges, restoreState: restoreRoot,
   });
 
   // ── Context menu ───────────────────────────────────────────────────────
@@ -301,6 +323,8 @@ export default function App() {
         onTraceColumn,
         // Which column is being traced in THIS specific node (for per-row highlight)
         traceColName: traceState?.nodeId === n.id ? traceState.colName : null,
+        // FunctionNode header ⧉ button opens the node's subgraph
+        ...(n.type === 'functionNode' ? { onDrillIn } : {}),
       },
     }));
 
@@ -338,7 +362,7 @@ export default function App() {
           : { ...n.style, opacity: 0.12, transition: 'all 0.2s ease' },
       };
     });
-  }, [nodesWithCallbacks, trackerMatchIds, trackerQuery, trackerWholeWord, tracePathNodeIds, traceState, onTraceColumn, validationOpen, errorNodeIds]);
+  }, [nodesWithCallbacks, trackerMatchIds, trackerQuery, trackerWholeWord, tracePathNodeIds, traceState, onTraceColumn, onDrillIn, validationOpen, errorNodeIds]);
 
   const trackedEdges = useMemo(() => {
     if (!trackerMatchIds) return edges;
@@ -492,6 +516,28 @@ export default function App() {
               className="text-xs px-2 py-1 rounded-lg text-slate-300 hover:bg-white/10 transition-colors ml-0.5">⇪ catalog</button>
           )}
         </div>
+
+        {/* Subgraph breadcrumb: pipeline › fn › … — click a crumb to exit to it */}
+        {viewMode === 'pipeline' && drill.stack.length > 0 && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 px-3 py-1.5 rounded-xl"
+            style={{ background: 'rgba(12,12,20,0.93)', backdropFilter: 'blur(20px)', border: '1px solid rgba(52,211,153,0.25)', boxShadow: '0 8px 32px rgba(0,0,0,0.55)' }}>
+            <button onClick={drill.exitOne} title="Back (one level up)"
+              className="text-xs px-1 rounded text-emerald-300 hover:bg-white/10 transition-colors mr-1">←</button>
+            <button onClick={() => drill.exitToDepth(0)}
+              className="text-xs text-slate-400 hover:text-slate-200 transition-colors">pipeline</button>
+            {drill.stack.map((frame, i) => (
+              <React.Fragment key={`${frame.fnId}-${i}`}>
+                <span className="text-xs select-none" style={{ color: '#475569' }}>›</span>
+                {i < drill.stack.length - 1 ? (
+                  <button onClick={() => drill.exitToDepth(i + 1)}
+                    className="text-xs text-slate-400 hover:text-slate-200 transition-colors">ƒ {frame.label}</button>
+                ) : (
+                  <span className="text-xs font-semibold" style={{ color: '#34d399' }}>ƒ {frame.label}</span>
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
 
         <div ref={reactFlowWrapper} className="flex-1 min-h-0 relative">
           {viewMode === 'pipeline' ? (

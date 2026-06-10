@@ -1,6 +1,8 @@
 # Design: Function subgraphs ("drill in")
 
-> Status: **proposed** (not built; sequenced after the catalog). Companion idea:
+> Status: **v1 built** (drill-in sub-canvas, signature proxies, breadcrumbs,
+> composed-root persistence — `src/hooks/useSubgraphDrill.js`). v2 (cross-boundary
+> tracing/outputs) and v3 (reusable modules) remain. Companion idea:
 > [data-catalog.md](./data-catalog.md).
 
 ## Problem

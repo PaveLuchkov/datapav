@@ -11,9 +11,12 @@ End state imagined: open the app, drag columns across DataFrames to show where
 each column came from, place operator nodes to document transformations, export the diagram
 as PNG or save it for the next session.
 
-**Planned next features (design docs in `docs/`):** a searchable, connectable
-[Data Catalog / "Data Map"](docs/data-catalog.md) (build first) and
-[Function subgraphs / "drill in"](docs/function-subgraphs.md).
+**Feature status (design docs in `docs/`):** the
+[Data Catalog / "Data Map"](docs/data-catalog.md) is built through v2 (known gaps:
+no UI to create sources, relationship edges can't be deleted/edited, re-publish
+duplicates entries, v3 cross-canvas not started).
+[Function subgraphs / "drill in"](docs/function-subgraphs.md) v1 is built — see
+"Function subgraphs" below; v2 (cross-boundary tracing) and v3 (reusable modules) remain.
 
 ---
 
@@ -412,6 +415,35 @@ engine (`nodeOutputAttrs.js`) is now a thin dispatcher over `outputs` /
 > WASM dependency + a data-binding flow). The intended shape is a `spec.previewQuery`
 > + a `useDataPreview` hook + a preview panel, binding a DataFrame to a loaded
 > CSV/Parquet sample.
+
+### Function subgraphs ("drill in") — v1
+
+`src/hooks/useSubgraphDrill.js` + wiring in `App.jsx`. A FunctionNode body lives at
+`functionNode.data.subgraph = { nodes, edges }`, so it persists/shares/copies with
+the node for free.
+
+- **Drill in**: ⧉ button in the FunctionNode header (injected `onDrillIn` in App's
+  `trackedNodes` memo, like `onTraceColumn`). The hook pushes the current surface
+  onto a stack and `restoreState`s the subgraph — the ONE editing surface
+  (useLineageState) is reused, so all callbacks/companions/validation/undo work
+  inside unchanged. `restoreState` clears undo history, so undo can't cross the
+  boundary.
+- **Signature proxies**: two read-only DataFrames (`data._proxy`) are upserted on
+  every entry — `<fn> · inputs` (from `data.inputs`) and `<fn> · outputs` (from
+  `data.outputs`). Attr ids reuse the input/output ids so inner edges stay stable
+  across re-entries. Stale proxies (wrong fn id, e.g. after paste re-ids) are
+  dropped along with their edges. `_proxy` makes DataFrameNode read-only (same
+  treatment as `_companionOf`).
+- **Exit**: breadcrumb bar (`pipeline › ƒ name › …`) at top-center; ← exits one
+  level, crumbs jump multiple levels (`exitToDepth` folds every level in between).
+- **Persistence while drilled**: `composedRoot` folds live subgraph edits back
+  into the root canvas; App passes it (not the raw surface) to `useCanvasTabs` and
+  `useLineagePersistence`, so the tab key always holds the whole pipeline. Tab
+  switch / file / clipboard / URL loads go through `restoreRoot`, which resets the
+  drill stack first.
+- **Known v1 limits**: trace stops at the boundary (proxies are terminal);
+  function `outputs` still come from the manual outputs list, not the subgraph
+  wiring (v2); PNG export while drilled frames using root-canvas bounds.
 
 ### Canvas Tabs storage layout
 ```
