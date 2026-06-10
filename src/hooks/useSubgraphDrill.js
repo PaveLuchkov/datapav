@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { uid } from '../utils/uid';
 
 // Function subgraphs ("drill in") — see docs/function-subgraphs.md, v1.
 //
@@ -36,7 +37,7 @@ function prepareSubSurface(fn) {
   let nodes = (sub.nodes || []).filter((n) => !stale.has(n.id));
   const edges = (sub.edges || []).filter((e) => !stale.has(e.source) && !stale.has(e.target));
 
-  const inAttrs = (fn.data.inputs || []).map((i) => ({ id: i.id, name: i.attrName, type: i.attrType || 'string' }));
+  const inAttrs = (fn.data.inputs || []).map((i) => ({ id: i.id, name: i.attrName, type: i.attrType || 'string', broken: !!i.broken }));
   const outAttrs = (fn.data.outputs || []).map((o) => ({ id: o.id, name: o.name, type: o.type || 'string' }));
   const fnLabel = fn.data.label || 'function';
 
@@ -67,7 +68,7 @@ function foldInto(frame, inner) {
   };
 }
 
-export function useSubgraphDrill({ nodes, edges, restoreState }) {
+export function useSubgraphDrill({ nodes, edges, restoreState, setNodes, setEdges, pushHistory }) {
   // Each frame: the surface we left + which function node we drilled into.
   // Current surface (nodes/edges from useLineageState) = subgraph of the top frame.
   const [stack, setStack] = useState([]); // [{ fnId, label, nodes, edges }]
@@ -109,5 +110,52 @@ export function useSubgraphDrill({ nodes, edges, restoreState }) {
   // surface was already auto-saved, so nothing is lost.
   const reset = useCallback(() => setStack([]), []);
 
-  return { stack, enterSubgraph, exitToDepth, exitOne, composedRoot, reset };
+  // ── Writable boundary ──────────────────────────────────────────────────────
+  // Dropping a NEW-named column onto a proxy writes through to the function's
+  // signature in the parent frame (same-name drops reconnect via the normal
+  // DataFrame drop path). Output proxy → new function output (dragged straight
+  // from the input proxy → linked via fromInputId). Input proxy → new UNBOUND
+  // input, marked broken; outside, a same-name drop onto Inputs (or the
+  // auto-heal) rebinds it. The proxy column reuses the signature id, so edges
+  // wired now survive re-entries (prepareSubSurface rebuilds from the signature).
+  const onProxyDrop = useCallback((proxyNodeId, payload) => {
+    if (!stack.length) return;
+    const frame = stack[stack.length - 1];
+    const isOut = proxyNodeId === proxyOutId(frame.fnId);
+    if (!isOut && proxyNodeId !== proxyInId(frame.fnId)) return;
+
+    const newId = uid();
+    const name = payload.attrName;
+    const type = payload.attrType || 'string';
+    const fromInputId = isOut && payload.sourceNodeId === proxyInId(frame.fnId) ? payload.attrId : null;
+
+    pushHistory();
+    // 1) the function signature lives in the parent frame on the stack
+    setStack((s) => {
+      const top = s[s.length - 1];
+      const frameNodes = top.nodes.map((n) => {
+        if (n.id !== top.fnId) return n;
+        return isOut
+          ? { ...n, data: { ...n.data, outputs: [...(n.data.outputs || []), { id: newId, name, type, fromInputId }] } }
+          : { ...n, data: { ...n.data, inputs: [...(n.data.inputs || []), { id: newId, attrName: name, attrType: type, sourceNodeId: null, sourceNodeLabel: '∅ unbound', sourceAttrId: null, broken: true }] } };
+      });
+      return [...s.slice(0, -1), { ...top, nodes: frameNodes }];
+    });
+    // 2) mirror it on the current surface's proxy with the SAME id
+    setNodes((nds) => nds.map((n) => n.id === proxyNodeId
+      ? { ...n, data: { ...n.data, attributes: [...n.data.attributes, { id: newId, name, type, broken: !isOut }] } }
+      : n));
+    // 3) make the lineage visible: wire the dropped column to the new output
+    if (isOut) {
+      setEdges((eds) => [...eds, {
+        id: `e-${payload.attrId}-${newId}`,
+        source: payload.sourceNodeId, sourceHandle: `${payload.attrId}-source`,
+        target: proxyNodeId, targetHandle: `${newId}-target`,
+        type: 'columnEdge',
+        style: { stroke: '#60a5fa', strokeWidth: 1.5 },
+      }]);
+    }
+  }, [stack, setNodes, setEdges, pushHistory]);
+
+  return { stack, enterSubgraph, exitToDepth, exitOne, composedRoot, reset, onProxyDrop };
 }

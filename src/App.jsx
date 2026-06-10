@@ -72,6 +72,7 @@ export default function App() {
     nodesWithCallbacks, selectedDFs,
     onConnect, onKeyDown, undo, redo,
     addNodeOfType, deleteNode, createMerge, restoreState,
+    setNodes, setEdges, pushHistory,
   } = useLineageState();
 
   const { applyLayout } = useAutoLayout();
@@ -79,7 +80,7 @@ export default function App() {
   // ── Function subgraphs (drill in) ──────────────────────────────────────────
   // The editing surface swaps to a function's subgraph; persistence below gets
   // the composed ROOT canvas so the tab always saves the whole pipeline.
-  const drill = useSubgraphDrill({ nodes, edges, restoreState });
+  const drill = useSubgraphDrill({ nodes, edges, restoreState, setNodes, setEdges, pushHistory });
   const { composedRoot } = drill;
 
   // Surface replaced wholesale (tab switch, file/clipboard/URL load) → the
@@ -330,6 +331,8 @@ export default function App() {
         traceColName: traceState?.nodeId === n.id ? traceState.colName : null,
         // FunctionNode header ⧉ button opens the node's subgraph
         ...(n.type === 'functionNode' ? { onDrillIn } : {}),
+        // New-name drops on subgraph proxies write through to the fn signature
+        ...(n.data._proxy ? { onProxyDrop: drill.onProxyDrop } : {}),
       },
     }));
 
@@ -367,7 +370,7 @@ export default function App() {
           : { ...n.style, opacity: 0.12, transition: 'all 0.2s ease' },
       };
     });
-  }, [nodesWithCallbacks, trackerMatchIds, trackerQuery, trackerWholeWord, tracePathNodeIds, traceState, onTraceColumn, onDrillIn, validationOpen, errorNodeIds]);
+  }, [nodesWithCallbacks, trackerMatchIds, trackerQuery, trackerWholeWord, tracePathNodeIds, traceState, onTraceColumn, onDrillIn, drill.onProxyDrop, validationOpen, errorNodeIds]);
 
   const trackedEdges = useMemo(() => {
     if (!trackerMatchIds) return edges;

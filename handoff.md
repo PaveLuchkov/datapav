@@ -456,9 +456,21 @@ the node for free.
   `useLineagePersistence`, so the tab key always holds the whole pipeline. Tab
   switch / file / clipboard / URL loads go through `restoreRoot`, which resets the
   drill stack first.
+- **Writable boundary (drops on proxies)**: a SAME-name drop onto a proxy goes
+  through the normal reconnect-by-name path (wires an edge to the existing
+  signature column — persists, since proxy attr ids = signature ids). A
+  NEW-name drop calls `drill.onProxyDrop` (injected into `_proxy` nodes in
+  App): output proxy → new function output appended to the signature in the
+  parent stack frame (dragged straight from the input proxy → `fromInputId`
+  link set); input proxy → new UNBOUND input (`sourceNodeId: null`,
+  `broken: true`) — shows red, gets bound outside via the same-name input
+  rebind or auto-heal. Before this, a new-name drop silently vanished on the
+  next drill-in (proxies rebuild from the signature).
 - **Known v1 limits**: trace stops at the boundary (proxies are terminal);
   function `outputs` still come from the manual outputs list, not the subgraph
-  wiring (v2); PNG export while drilled frames using root-canvas bounds.
+  wiring (v2); PNG export while drilled frames using root-canvas bounds;
+  undo inside a subgraph doesn't roll back signature write-throughs (they live
+  in the stack frame, not the surface history).
 
 ### Canvas Tabs storage layout
 ```

@@ -42,7 +42,7 @@ test('enterSubgraph swaps the surface to the subgraph with signature proxies', (
   expect(ids).toEqual(['proxy-in-fn1', 'proxy-out-fn1']);
   const pin = result.current.state.nodes.find((n) => n.id === 'proxy-in-fn1');
   expect(pin.data._proxy).toBe(true);
-  expect(pin.data.attributes).toEqual([{ id: 'i1', name: 'amount', type: 'float' }]);
+  expect(pin.data.attributes).toEqual([{ id: 'i1', name: 'amount', type: 'float', broken: false }]);
   const pout = result.current.state.nodes.find((n) => n.id === 'proxy-out-fn1');
   expect(pout.data.attributes).toEqual([{ id: 'o1', name: 'ltv', type: 'float' }]);
   expect(result.current.drill.stack).toHaveLength(1);
@@ -112,6 +112,62 @@ test('nested drill-in and exitToDepth(0) folds every level back to the root', ()
   const fn = result.current.state.nodes.find((n) => n.id === 'fn1');
   const innerFn = fn.data.subgraph.nodes.find((n) => n.id === innerFnId);
   expect(innerFn.data.subgraph.nodes.some((n) => n.data.label === 'deep_df')).toBe(true);
+});
+
+test('new-name drop on the OUTPUT proxy writes a new output into the function signature', () => {
+  const result = setup([FN, df('A', 'orders')]);
+  act(() => result.current.drill.enterSubgraph('fn1'));
+  act(() => result.current.state.addNodeOfType('dataFrameNode', 100, 100, {
+    label: 'inner', attributes: [{ id: 'c1', name: 'score', type: 'float' }],
+  }));
+
+  act(() => result.current.drill.onProxyDrop('proxy-out-fn1',
+    { sourceNodeId: 'X', attrId: 'c1', attrName: 'score', attrType: 'float' }));
+
+  // proxy shows the column; an edge wires the dropped source to it
+  const pout = result.current.state.nodes.find((n) => n.id === 'proxy-out-fn1');
+  const added = pout.data.attributes.find((a) => a.name === 'score');
+  expect(added).toBeTruthy();
+  expect(result.current.state.edges.some((e) => e.targetHandle === `${added.id}-target`)).toBe(true);
+
+  // signature in the parent frame gained the output with the SAME id
+  const fnInRoot = result.current.drill.composedRoot.nodes.find((n) => n.id === 'fn1');
+  expect(fnInRoot.data.outputs).toHaveLength(2);
+  expect(fnInRoot.data.outputs[1]).toMatchObject({ id: added.id, name: 'score', type: 'float' });
+
+  // survives exit + re-entry
+  act(() => result.current.drill.exitOne());
+  act(() => result.current.drill.enterSubgraph('fn1'));
+  const pout2 = result.current.state.nodes.find((n) => n.id === 'proxy-out-fn1');
+  expect(pout2.data.attributes.map((a) => a.name)).toEqual(['ltv', 'score']);
+  expect(result.current.state.edges.some((e) => e.targetHandle === `${added.id}-target`)).toBe(true);
+});
+
+test('drag from input proxy to output proxy links the new output via fromInputId', () => {
+  const result = setup([FN]);
+  act(() => result.current.drill.enterSubgraph('fn1'));
+
+  act(() => result.current.drill.onProxyDrop('proxy-out-fn1',
+    { sourceNodeId: 'proxy-in-fn1', attrId: 'i1', attrName: 'amount', attrType: 'float' }));
+
+  const fnInRoot = result.current.drill.composedRoot.nodes.find((n) => n.id === 'fn1');
+  const out = fnInRoot.data.outputs.find((o) => o.name === 'amount');
+  expect(out.fromInputId).toBe('i1');
+});
+
+test('new-name drop on the INPUT proxy declares an unbound (broken) function input', () => {
+  const result = setup([FN]);
+  act(() => result.current.drill.enterSubgraph('fn1'));
+
+  act(() => result.current.drill.onProxyDrop('proxy-in-fn1',
+    { sourceNodeId: 'X', attrId: 'c9', attrName: 'discount', attrType: 'float' }));
+
+  const fnInRoot = result.current.drill.composedRoot.nodes.find((n) => n.id === 'fn1');
+  const inp = fnInRoot.data.inputs.find((i) => i.attrName === 'discount');
+  expect(inp).toMatchObject({ broken: true, sourceNodeId: null });
+  // proxy shows it red too, and it persists across re-entry
+  const pin = result.current.state.nodes.find((n) => n.id === 'proxy-in-fn1');
+  expect(pin.data.attributes.find((a) => a.name === 'discount').broken).toBe(true);
 });
 
 test('stale proxies from a pasted (re-id-ed) function are dropped on entry', () => {
