@@ -7,6 +7,7 @@ import {
   inferAggType,
   computeNodeOutputAttributes,
   getUpstreamAttrs,
+  getUpstreamChainAttrs,
   traceColumnUpstream,
   traceColumnDownstream,
   flattenUpstream,
@@ -171,6 +172,29 @@ describe('getUpstreamAttrs', () => {
     const edges = [edge('L', 'df-out', 'M', 'left-in')];
     expect(getUpstreamAttrs('M', edges, [l, m], 'left-in')).toEqual([attr('l1', 'x')]);
     expect(getUpstreamAttrs('M', edges, [l, m], 'df-in')).toEqual([]);
+  });
+});
+
+describe('getUpstreamChainAttrs', () => {
+  test('walks the full upstream chain, nearest ancestors first, deduped by name', () => {
+    // A(x,y) → Transform(drop y) → B(x) → Filter
+    const a = df('A', 'A', [attr('a1', 'x', 'int'), attr('a2', 'y')]);
+    const t = op('T', 'transformNode', 't', { ops: [{ id: 'o1', op: 'drop_column', args: { col: 'y' } }] });
+    const b = df('B', 'B', [attr('b1', 'x', 'int')]);
+    const f = op('F', 'filterNode', 'f', {});
+    const nodes = [a, t, b, f];
+    const edges = [dfEdge('A', 'T'), dfEdge('T', 'B'), dfEdge('B', 'F')];
+    const out = getUpstreamChainAttrs('F', edges, nodes);
+    // x from the direct source B wins; y resurfaces from A further up the chain
+    expect(out.map((o) => o.name).sort()).toEqual(['x', 'y']);
+    expect(out.find((o) => o.name === 'x')).toEqual(attr('b1', 'x', 'int'));
+  });
+
+  test('is cycle-safe', () => {
+    const a = df('A', 'A', [attr('a1', 'x')]);
+    const b = df('B', 'B', [attr('b1', 'y')]);
+    const edges = [dfEdge('A', 'B'), dfEdge('B', 'A')];
+    expect(getUpstreamChainAttrs('B', edges, [a, b]).map((o) => o.name)).toEqual(['x']);
   });
 });
 

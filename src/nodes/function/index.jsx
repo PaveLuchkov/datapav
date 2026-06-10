@@ -12,7 +12,8 @@ const ROW_HEIGHT = 24;
 
 export default function FunctionNode({ id, data }) {
   const {
-    label, inputs, outputs, connectedDFs, companionId, extendMode,
+    label, inputs, outputs, connectedDFs, companionId, extendMode, subgraph,
+    onDrillIn,
     onLabelChange,
     onFunctionInputDrop,
     onDeleteFunctionInput,
@@ -23,6 +24,7 @@ export default function FunctionNode({ id, data }) {
     onFunctionOutputLinkChange,
     onFunctionExtendModeChange,
     onCodeChange, onStageChange, onCreateCompanion,
+    onTraceColumn, traceColName,
     trackerHighlight, code, stage,
   } = data;
 
@@ -74,8 +76,11 @@ export default function FunctionNode({ id, data }) {
     if (!raw) return;
     const payload = JSON.parse(raw);
     if (payload.sourceNodeId === id) return;
-    onFunctionInputDrop(id, payload);
-  }, [id, onFunctionInputDrop]);
+    // Same-name input already present → rebind it to the new source instead of
+    // appending a duplicate (this is how broken inputs are reconnected).
+    const existing = inputs.find((i) => i.attrName === payload.attrName);
+    onFunctionInputDrop(id, payload, existing?.id ?? null);
+  }, [id, inputs, onFunctionInputDrop]);
 
   const onOutputDragStart = useCallback((e, output) => {
     e.stopPropagation();
@@ -125,6 +130,21 @@ export default function FunctionNode({ id, data }) {
         >
           {codeOpen ? '[/]' : '</>'}
         </button>
+        {/* Drill in: open this function's subgraph (body) as its own canvas */}
+        {onDrillIn && (() => {
+          const hasBody = (subgraph?.nodes || []).some((n) => !n.data?._proxy);
+          return (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDrillIn(id); }}
+              onMouseDown={(e) => e.stopPropagation()}
+              title={hasBody ? 'Open subgraph' : 'Drill in — build this function\'s body'}
+              className="flex-shrink-0 select-none text-xs font-mono transition-colors"
+              style={{ color: hasBody ? '#34d399' : 'rgba(74,222,128,0.3)' }}
+            >
+              ⧉
+            </button>
+          );
+        })()}
         {/* Extend mode toggle: pass source DF columns through to companion */}
         <button
           onClick={(e) => { e.stopPropagation(); if (hasDfIn) onFunctionExtendModeChange(id, !extendMode); }}
@@ -283,6 +303,17 @@ export default function FunctionNode({ id, data }) {
                 placeholder="output_col"
                 borderColorClass="border-emerald-400"
               />
+              {onTraceColumn && output.name && (
+                <button
+                  onClick={(e) => { stop(e); onTraceColumn(id, output.name); }}
+                  onMouseDown={stop}
+                  title={`Trace: ${output.name}`}
+                  className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 w-4 h-4 flex items-center justify-center"
+                  style={{ color: traceColName === output.name ? '#06b6d4' : '#475569', fontSize: 10 }}
+                >
+                  ◎
+                </button>
+              )}
               <button
                 onClick={(e) => { stop(e); onDeleteFunctionOutput(id, output.id); }}
                 onMouseDown={stop}

@@ -4,16 +4,23 @@ import { useDrag } from '../../components/DragContext';
 import EditableText from '../../components/EditableText';
 import StageBadge from '../../components/StageBadge';
 import NodeCodeBlock from '../../components/NodeCodeBlock';
-import { DRAG_TYPE, ATTR_TYPE_META } from '../../constants';
+import { DRAG_TYPE, ATTR_TYPES, ATTR_TYPE_META } from '../../constants';
 import { inferAggType } from '../../utils/nodeOutputAttrs';
 import config, { AGG_FUNCTIONS } from './config';
 
-function TypeBadge({ type }) {
+function TypeBadge({ type, overridden, onClick, title }) {
   const meta = ATTR_TYPE_META[type] || ATTR_TYPE_META.string;
   return (
     <span
-      className="mr-1 rounded flex-shrink-0 select-none"
-      style={{ fontSize: 9, lineHeight: '14px', padding: '0 4px', color: meta.color, background: meta.bg, fontFamily: "'JetBrains Mono', monospace" }}
+      onClick={onClick}
+      onMouseDown={onClick ? (e) => e.stopPropagation() : undefined}
+      title={title}
+      className={`mr-1 rounded flex-shrink-0 select-none ${onClick ? 'cursor-pointer transition-opacity hover:opacity-80' : ''}`}
+      style={{
+        fontSize: 9, lineHeight: '14px', padding: '0 4px', color: meta.color, background: meta.bg,
+        fontFamily: "'JetBrains Mono', monospace",
+        boxShadow: overridden ? `inset 0 0 0 1px ${meta.color}` : undefined,
+      }}
     >
       {meta.abbr}
     </span>
@@ -30,6 +37,7 @@ export default function GroupByNode({ id, data }) {
     onGroupByInputDrop, onDeleteGroupByInput, onToggleGroupByKey,
     onAddGroupByAgg, onDeleteGroupByAgg, onUpdateGroupByAgg,
     onCodeChange, onStageChange, onCreateCompanion,
+    onTraceColumn, traceColName,
     trackerHighlight, code, stage,
   } = data;
 
@@ -85,8 +93,11 @@ export default function GroupByNode({ id, data }) {
     if (!raw) return;
     const payload = JSON.parse(raw);
     if (payload.sourceNodeId === id) return;
-    onGroupByInputDrop(id, payload);
-  }, [id, onGroupByInputDrop]);
+    // Same-name input already present → rebind it to the new source instead of
+    // appending a duplicate (this is how broken inputs are reconnected).
+    const existing = safeInputs.find((i) => i.attrName === payload.attrName);
+    onGroupByInputDrop(id, payload, existing?.id ?? null);
+  }, [id, safeInputs, onGroupByInputDrop]);
 
   // ── Output drag (group-by passthrough + agg outputs) ─────────────────────
 
@@ -274,6 +285,17 @@ export default function GroupByNode({ id, data }) {
               >
                 <TypeBadge type={inp.attrType || 'string'} />
                 <span className="text-xs flex-1 truncate" style={{ color: tracked ? '#fcd34d' : '#7dd3fc', fontWeight: tracked ? 700 : undefined }}>{inp.attrName}</span>
+                {onTraceColumn && (
+                  <button
+                    onClick={(e) => { stop(e); onTraceColumn(id, inp.attrName); }}
+                    onMouseDown={stop}
+                    title={`Trace: ${inp.attrName}`}
+                    className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 w-4 h-4 flex items-center justify-center"
+                    style={{ color: traceColName === inp.attrName ? '#06b6d4' : '#475569', fontSize: 10 }}
+                  >
+                    ◎
+                  </button>
+                )}
                 <Handle
                   type="source" position={Position.Right} id={`${outId}-source`}
                   style={{
@@ -300,7 +322,7 @@ export default function GroupByNode({ id, data }) {
             const outId = `aggout-${agg.id}`;
             const outName = agg.outputName || `${agg.func || 'agg'}`;
             const srcInp = inputOptions.find((inp) => inp.id === agg.inputId);
-            const outType = inferAggType(agg.func, srcInp?.attrType);
+            const outType = agg.typeOverride || inferAggType(agg.func, srcInp?.attrType);
             const trackedAgg = isTrackedAttr(outName) || isTrackedAttr(srcInp?.attrName);
             return (
               <div
@@ -333,8 +355,21 @@ export default function GroupByNode({ id, data }) {
                   {AGG_FUNCTIONS.map((fn) => <option key={fn} value={fn}>{fn}</option>)}
                 </select>
 
-                {/* Output type badge + name */}
-                <TypeBadge type={outType} />
+                {/* Output type badge + name. Click cycles through manual types,
+                    then back to auto (inferAggType). Overridden = inset ring. */}
+                <TypeBadge
+                  type={outType}
+                  overridden={!!agg.typeOverride}
+                  title={agg.typeOverride ? `Type: ${outType} (manual) — click to cycle, back to auto` : `Type: ${outType} (auto) — click to override`}
+                  onClick={(e) => {
+                    stop(e);
+                    const i = ATTR_TYPES.indexOf(agg.typeOverride);
+                    const next = agg.typeOverride
+                      ? (i + 1 >= ATTR_TYPES.length ? null : ATTR_TYPES[i + 1])
+                      : ATTR_TYPES[0];
+                    onUpdateGroupByAgg(id, agg.id, 'typeOverride', next);
+                  }}
+                />
                 <input
                   type="text"
                   value={agg.outputName}
@@ -346,6 +381,17 @@ export default function GroupByNode({ id, data }) {
                   style={{ flex: '1 1 0', minWidth: 0, background: '#021526', border: '1px solid #164e63', color: '#e0f2fe' }}
                 />
 
+                {onTraceColumn && agg.outputName && (
+                  <button
+                    onClick={(e) => { stop(e); onTraceColumn(id, outName); }}
+                    onMouseDown={stop}
+                    title={`Trace: ${outName}`}
+                    className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 w-4 h-4 flex items-center justify-center"
+                    style={{ color: traceColName === outName ? '#06b6d4' : '#475569', fontSize: 10 }}
+                  >
+                    ◎
+                  </button>
+                )}
                 {/* Delete button */}
                 <button
                   onClick={(e) => { stop(e); onDeleteGroupByAgg(id, agg.id); }}

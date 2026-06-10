@@ -8,10 +8,10 @@ const theme = THEMES.dataframe;
 
 export default function DataFrameNode({ id, data }) {
   const {
-    label, attributes, _companionOf,
+    label, attributes, _companionOf, _proxy,
     onLabelChange, onAttributeChange, onAttributeTypeChange,
     onAddAttribute, onDeleteAttribute,
-    onAttributeDrop, onReorderAttributes,
+    onAttributeDrop, onReorderAttributes, onProxyDrop,
     onCodeChange, onStageChange, onTraceColumn,
     trackerHighlight, traceColName, code, stage,
   } = data;
@@ -22,8 +22,15 @@ export default function DataFrameNode({ id, data }) {
   const isTrackedAttr = useTrackedAttr(trackerHighlight);
   const dragRef = useDrag();
   const { startDrag, endDrag } = useDragSource(id, label);
-  // External column dropped onto the node → copy it and wire a lineage edge.
-  const { dropOver, dragHandlers } = useDropZone(id, (payload) => onAttributeDrop(id, payload));
+  // External column dropped onto the node → if a same-name column already
+  // exists here, reconnect to it (heals broken); otherwise copy + wire.
+  // On a subgraph proxy a NEW name instead writes through to the function's
+  // signature (a plain copy would be wiped on the next drill-in).
+  const { dropOver, dragHandlers } = useDropZone(id, (payload) => {
+    const existing = attributes.find((a) => a.name === payload.attrName);
+    if (!existing && _proxy && onProxyDrop) { onProxyDrop(id, payload); return; }
+    onAttributeDrop(id, payload, existing?.id ?? null);
+  });
 
   // ── Same-node reorder (the insert-line drag) ───────────────────────────────
   const onAttrDragOver = useCallback((e, index) => {
@@ -50,7 +57,9 @@ export default function DataFrameNode({ id, data }) {
     setInsertIndex(null);
   }, [id, attributes, insertIndex, onReorderAttributes, dragRef]);
 
-  const readOnly = !!_companionOf;
+  // Subgraph proxies (_proxy) mirror the outer function's signature — read-only
+  // like companions; their columns are refreshed from the function on drill-in.
+  const readOnly = !!_companionOf || !!_proxy;
 
   return (
     <NodeShell

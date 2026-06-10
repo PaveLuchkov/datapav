@@ -11,6 +11,13 @@ End state imagined: open the app, drag columns across DataFrames to show where
 each column came from, place operator nodes to document transformations, export the diagram
 as PNG or save it for the next session.
 
+**Feature status (design docs in `docs/`):** the
+[Data Catalog / "Data Map"](docs/data-catalog.md) is built through v2 (known gaps:
+no UI to create sources, relationship edges can't be deleted/edited, re-publish
+duplicates entries, v3 cross-canvas not started).
+[Function subgraphs / "drill in"](docs/function-subgraphs.md) v1 is built — see
+"Function subgraphs" below; v2 (cross-boundary tracing) and v3 (reusable modules) remain.
+
 ---
 
 ## What's Built (current state)
@@ -282,7 +289,22 @@ Non-companion DFs connected to deleted operator: `_companionOf` untouched (may b
 // For each DF with broken attrs: getUpstreamAttrs(n.id, edges, nodes)
 // If upstream has attr.name === broken.name → broken: false, type updated from upstream
 ```
-No auto-heal for GroupBy/Function inputs — user must re-drag a replacement column.
+**Reconnect-by-name (drops + heal).** Dropping a column where a SAME-NAME
+target already exists reconnects instead of duplicating:
+- DF drop (`onAttributeDrop` + name match resolved in the component): no copy —
+  the lineage edge wires to the existing attribute, `broken` clears, type
+  refreshes from the source. Identical edges are deduped.
+- Function/GroupBy input drop (`onFunctionInputDrop` / `onGroupByInputDrop`
+  with `existingInputId`): the input is REBOUND in place — it keeps its id, so
+  `fromInputId` output links, `groupByInputIds` and aggregations survive; the
+  stale edge to the old source is replaced.
+
+**Input auto-heal** (`rebindBrokenInput` in nodeOutputAttrs, called from the
+function/groupby `refreshData` specs): a broken input whose `sourceNodeId` no
+longer exists rebinds automatically when a node with the SAME LABEL exposing a
+SAME-NAME column appears (the "deleted a DF, recreated it with the same name"
+refactor). Heal is data-only — the visual column edge is not recreated; a
+manual re-drag (which now rebinds) restores it.
 
 ### FunctionNode Extend Mode
 
@@ -408,6 +430,47 @@ engine (`nodeOutputAttrs.js`) is now a thin dispatcher over `outputs` /
 > WASM dependency + a data-binding flow). The intended shape is a `spec.previewQuery`
 > + a `useDataPreview` hook + a preview panel, binding a DataFrame to a loaded
 > CSV/Parquet sample.
+
+### Function subgraphs ("drill in") — v1
+
+`src/hooks/useSubgraphDrill.js` + wiring in `App.jsx`. A FunctionNode body lives at
+`functionNode.data.subgraph = { nodes, edges }`, so it persists/shares/copies with
+the node for free.
+
+- **Drill in**: ⧉ button in the FunctionNode header (injected `onDrillIn` in App's
+  `trackedNodes` memo, like `onTraceColumn`). The hook pushes the current surface
+  onto a stack and `restoreState`s the subgraph — the ONE editing surface
+  (useLineageState) is reused, so all callbacks/companions/validation/undo work
+  inside unchanged. `restoreState` clears undo history, so undo can't cross the
+  boundary.
+- **Signature proxies**: two read-only DataFrames (`data._proxy`) are upserted on
+  every entry — `<fn> · inputs` (from `data.inputs`) and `<fn> · outputs` (from
+  `data.outputs`). Attr ids reuse the input/output ids so inner edges stay stable
+  across re-entries. Stale proxies (wrong fn id, e.g. after paste re-ids) are
+  dropped along with their edges. `_proxy` makes DataFrameNode read-only (same
+  treatment as `_companionOf`).
+- **Exit**: breadcrumb bar (`pipeline › ƒ name › …`) at top-center; ← exits one
+  level, crumbs jump multiple levels (`exitToDepth` folds every level in between).
+- **Persistence while drilled**: `composedRoot` folds live subgraph edits back
+  into the root canvas; App passes it (not the raw surface) to `useCanvasTabs` and
+  `useLineagePersistence`, so the tab key always holds the whole pipeline. Tab
+  switch / file / clipboard / URL loads go through `restoreRoot`, which resets the
+  drill stack first.
+- **Writable boundary (drops on proxies)**: a SAME-name drop onto a proxy goes
+  through the normal reconnect-by-name path (wires an edge to the existing
+  signature column — persists, since proxy attr ids = signature ids). A
+  NEW-name drop calls `drill.onProxyDrop` (injected into `_proxy` nodes in
+  App): output proxy → new function output appended to the signature in the
+  parent stack frame (dragged straight from the input proxy → `fromInputId`
+  link set); input proxy → new UNBOUND input (`sourceNodeId: null`,
+  `broken: true`) — shows red, gets bound outside via the same-name input
+  rebind or auto-heal. Before this, a new-name drop silently vanished on the
+  next drill-in (proxies rebuild from the signature).
+- **Known v1 limits**: trace stops at the boundary (proxies are terminal);
+  function `outputs` still come from the manual outputs list, not the subgraph
+  wiring (v2); PNG export while drilled frames using root-canvas bounds;
+  undo inside a subgraph doesn't roll back signature write-throughs (they live
+  in the stack frame, not the surface history).
 
 ### Canvas Tabs storage layout
 ```

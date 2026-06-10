@@ -39,6 +39,48 @@ export function getUpstreamAttrs(nodeId, edges, nodes, handleId = 'df-in') {
   return [...seen.values()];
 }
 
+// Union of output attrs over the WHOLE upstream chain (BFS over incoming
+// edges), nearest ancestors first. Used for @column autocomplete, where a
+// column from further up the pipeline is still a useful suggestion even if a
+// middle step renamed or dropped it.
+export function getUpstreamChainAttrs(nodeId, edges, nodes) {
+  const seen = new Map();
+  const visited = new Set([nodeId]);
+  let frontier = [nodeId];
+  while (frontier.length) {
+    const next = [];
+    for (const id of frontier) {
+      for (const e of edges) {
+        if (e.target !== id || visited.has(e.source)) continue;
+        visited.add(e.source);
+        const src = nodes.find((n) => n.id === e.source);
+        if (!src) continue;
+        for (const attr of computeNodeOutputAttributes(src, edges, nodes)) {
+          if (!seen.has(attr.name)) seen.set(attr.name, attr);
+        }
+        next.push(e.source);
+      }
+    }
+    frontier = next;
+  }
+  return [...seen.values()];
+}
+
+// A broken GroupBy/Function input references a deleted node by id. If a node
+// with the SAME LABEL exposing a SAME-NAME column exists again (the user
+// recreated the DataFrame), rebind the input to it instead of making the user
+// delete the red row and re-drag. Returns the healed input, or null.
+export function rebindBrokenInput(inp, edges, nodes) {
+  if (!inp.broken || nodes.some((n) => n.id === inp.sourceNodeId)) return null;
+  for (const n of nodes) {
+    if (n.data?.label !== inp.sourceNodeLabel) continue;
+    const attr = computeNodeOutputAttributes(n, edges, nodes).find((a) => a.name === inp.attrName);
+    if (!attr) continue;
+    return { ...inp, broken: false, sourceNodeId: n.id, sourceAttrId: attr.id, attrType: attr.type || inp.attrType };
+  }
+  return null;
+}
+
 // ── Column Lineage Tracing ─────────────────────────────────────────────────
 //
 // traceColumnUpstream: walks the graph backwards from (nodeId, colName)

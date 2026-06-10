@@ -421,5 +421,8 @@ export function useLineageState() {
     onConnect, onKeyDown, undo, redo,
     addNodeOfType, deleteNode, createMerge, restoreState,
     onCreateCompanion,
+    // raw setters + history hook for cross-cutting features (subgraph proxy
+    // write-through) that surgically patch the surface without restoreState
+    setNodes, setEdges, pushHistory,
   };
 }

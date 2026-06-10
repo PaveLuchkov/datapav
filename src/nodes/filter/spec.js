@@ -20,7 +20,10 @@ const filterSpec = {
   component: FilterNode,
 
   // Component needs the upstream column set for condition autocomplete.
-  inject: (node, edges, nodes) => ({ connectedAttrs: engine.getUpstreamAttrs(node.id, edges, nodes) }),
+  // Walks the FULL upstream chain (not just the direct df-in source) so
+  // columns from earlier pipeline steps are suggestable too; the output
+  // schema below stays direct-upstream pass-through.
+  inject: (node, edges, nodes) => ({ connectedAttrs: engine.getUpstreamChainAttrs(node.id, edges, nodes) }),
 
   // ── Lineage ────────────────────────────────────────────────────────────────
   outputs: (node, edges, nodes) => engine.getUpstreamAttrs(node.id, edges, nodes),

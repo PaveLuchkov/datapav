@@ -8,6 +8,8 @@ import DataFrameNode from './index';
 vi.mock('reactflow', () => ({
   Handle: ({ id }) => <div data-testid={`handle-${id}`} />,
   Position: { Left: 'left', Right: 'right' },
+  // useDragSource cancels any in-flight connection on drag start
+  useStoreApi: () => ({ getState: () => ({ cancelConnection: () => {} }) }),
 }));
 
 const wrap = (ui) => render(<DragProvider>{ui}</DragProvider>);

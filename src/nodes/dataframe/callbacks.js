@@ -59,21 +59,30 @@ export function useDataFrameCallbacks(setNodes, setEdges, pushHistory) {
     }));
   }, [setNodes, pushHistory]);
 
-  const onAttributeDrop = useCallback((targetNodeId, { sourceNodeId, attrId, attrName, attrType }) => {
+  // `existingAttrId` (resolved by the component from a same-name match) switches
+  // the drop from "copy column" to "RECONNECT": heal the existing attribute,
+  // refresh its type, and wire the lineage edge to it — no duplicate is created.
+  const onAttributeDrop = useCallback((targetNodeId, { sourceNodeId, attrId, attrName, attrType }, existingAttrId = null) => {
     pushHistory();
-    const newAttr = makeAttr(attrName, attrType || 'string');
-    setNodes((nds) => nds.map((n) =>
-      n.id === targetNodeId
-        ? { ...n, data: { ...n.data, attributes: [...n.data.attributes, newAttr] } }
-        : n
-    ));
-    setEdges((eds) => [...eds, {
-      id: `e-${attrId}-${newAttr.id}`,
-      source: sourceNodeId, sourceHandle: `${attrId}-source`,
-      target: targetNodeId, targetHandle: `${newAttr.id}-target`,
-      type: 'columnEdge',
-      style: { stroke: '#60a5fa', strokeWidth: 1.5 },
-    }]);
+    const newAttr = existingAttrId ? null : makeAttr(attrName, attrType || 'string');
+    const targetAttrId = existingAttrId || newAttr.id;
+    setNodes((nds) => nds.map((n) => {
+      if (n.id !== targetNodeId) return n;
+      const attributes = existingAttrId
+        ? n.data.attributes.map((a) => a.id === existingAttrId ? { ...a, broken: false, type: attrType || a.type } : a)
+        : [...n.data.attributes, newAttr];
+      return { ...n, data: { ...n.data, attributes } };
+    }));
+    setEdges((eds) => {
+      if (eds.some((e) => e.sourceHandle === `${attrId}-source` && e.targetHandle === `${targetAttrId}-target`)) return eds;
+      return [...eds, {
+        id: `e-${attrId}-${targetAttrId}`,
+        source: sourceNodeId, sourceHandle: `${attrId}-source`,
+        target: targetNodeId, targetHandle: `${targetAttrId}-target`,
+        type: 'columnEdge',
+        style: { stroke: '#60a5fa', strokeWidth: 1.5 },
+      }];
+    });
   }, [setNodes, setEdges, pushHistory]);
 
   return {

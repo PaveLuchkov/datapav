@@ -3,18 +3,31 @@ import { MarkerType } from 'reactflow';
 import { uid } from '../../utils/uid';
 
 export function useFunctionCallbacks(setNodes, setEdges, pushHistory) {
-  const onFunctionInputDrop = useCallback((funcNodeId, { sourceNodeId, attrId, attrName, attrType, sourceNodeLabel }) => {
+  // `existingInputId` (same-name match, resolved by the component) switches the
+  // drop from "append input" to "REBIND": the input keeps its id — so output
+  // links (fromInputId) survive — and just points at the new source; broken
+  // state clears. The stale edge to the old source is replaced.
+  const onFunctionInputDrop = useCallback((funcNodeId, { sourceNodeId, attrId, attrName, attrType, sourceNodeLabel }, existingInputId = null) => {
     pushHistory();
-    const newInput = { id: uid(), attrName, attrType: attrType || 'string', sourceNodeId, sourceNodeLabel: sourceNodeLabel || sourceNodeId, sourceAttrId: attrId };
+    const inputId = existingInputId || uid();
+    const patch = { attrName, attrType: attrType || 'string', sourceNodeId, sourceNodeLabel: sourceNodeLabel || sourceNodeId, sourceAttrId: attrId, broken: false };
     setNodes((nds) => nds.map((n) =>
       n.id === funcNodeId
-        ? { ...n, data: { ...n.data, inputs: [...n.data.inputs, newInput] } }
+        ? {
+            ...n,
+            data: {
+              ...n.data,
+              inputs: existingInputId
+                ? n.data.inputs.map((i) => i.id === existingInputId ? { ...i, ...patch } : i)
+                : [...n.data.inputs, { id: inputId, ...patch }],
+            },
+          }
         : n
     ));
-    setEdges((eds) => [...eds, {
-      id: `e-fn-${attrId}-${newInput.id}`,
+    setEdges((eds) => [...eds.filter((e) => e.targetHandle !== `${inputId}-target`), {
+      id: `e-fn-${attrId}-${inputId}`,
       source: sourceNodeId, sourceHandle: `${attrId}-source`,
-      target: funcNodeId, targetHandle: `${newInput.id}-target`,
+      target: funcNodeId, targetHandle: `${inputId}-target`,
       type: 'smoothstep',
       style: { stroke: '#10b981', strokeWidth: 1.5 },
       markerEnd: { type: MarkerType.ArrowClosed, color: '#10b981' },

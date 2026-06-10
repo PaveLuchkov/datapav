@@ -31,7 +31,7 @@ const groupbySpec = {
       .filter((a) => a.outputName)
       .map((a) => {
         const inp = inputs.find((i) => i.id === a.inputId);
-        return { id: a.id, name: a.outputName, type: engine.inferAggType(a.func, inp?.attrType) };
+        return { id: a.id, name: a.outputName, type: a.typeOverride || engine.inferAggType(a.func, inp?.attrType) };
       });
     return [...keys, ...aggs];
   },
@@ -84,7 +84,13 @@ const groupbySpec = {
     let changed = false;
     const inputs = (node.data.inputs || []).map((inp) => {
       const srcNode = nodes.find((s) => s.id === inp.sourceNodeId);
-      if (!srcNode) return inp;
+      if (!srcNode) {
+        // Source gone: auto-heal if a same-label node with a same-name column
+        // reappeared (e.g. the user recreated the deleted DataFrame).
+        const healed = engine.rebindBrokenInput(inp, edges, nodes);
+        if (healed) { changed = true; return healed; }
+        return inp;
+      }
       const liveAttr = engine.computeNodeOutputAttributes(srcNode, edges, nodes).find((a) => a.name === inp.attrName);
       if (!liveAttr || liveAttr.type === inp.attrType) return inp;
       changed = true;
