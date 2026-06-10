@@ -93,8 +93,11 @@ export default function GroupByNode({ id, data }) {
     if (!raw) return;
     const payload = JSON.parse(raw);
     if (payload.sourceNodeId === id) return;
-    onGroupByInputDrop(id, payload);
-  }, [id, onGroupByInputDrop]);
+    // Same-name input already present → rebind it to the new source instead of
+    // appending a duplicate (this is how broken inputs are reconnected).
+    const existing = safeInputs.find((i) => i.attrName === payload.attrName);
+    onGroupByInputDrop(id, payload, existing?.id ?? null);
+  }, [id, safeInputs, onGroupByInputDrop]);
 
   // ── Output drag (group-by passthrough + agg outputs) ─────────────────────
 

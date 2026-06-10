@@ -3,18 +3,31 @@ import { uid } from '../../utils/uid';
 import { MarkerType } from 'reactflow';
 
 export function useGroupByCallbacks(setNodes, setEdges, pushHistory) {
-  const onGroupByInputDrop = useCallback((nodeId, { sourceNodeId, attrId, attrName, attrType, sourceNodeLabel }) => {
+  // `existingInputId` (same-name match, resolved by the component) → REBIND in
+  // place instead of appending: the input keeps its id, so group-by keys and
+  // aggregations referencing it survive; broken state clears; the stale edge
+  // to the old source is replaced.
+  const onGroupByInputDrop = useCallback((nodeId, { sourceNodeId, attrId, attrName, attrType, sourceNodeLabel }, existingInputId = null) => {
     pushHistory();
-    const newInput = { id: uid(), attrName, attrType: attrType || 'string', sourceNodeId, sourceNodeLabel: sourceNodeLabel || sourceNodeId, sourceAttrId: attrId };
+    const inputId = existingInputId || uid();
+    const patch = { attrName, attrType: attrType || 'string', sourceNodeId, sourceNodeLabel: sourceNodeLabel || sourceNodeId, sourceAttrId: attrId, broken: false };
     setNodes((nds) => nds.map((n) =>
       n.id === nodeId
-        ? { ...n, data: { ...n.data, inputs: [...(n.data.inputs || []), newInput] } }
+        ? {
+            ...n,
+            data: {
+              ...n.data,
+              inputs: existingInputId
+                ? (n.data.inputs || []).map((i) => i.id === existingInputId ? { ...i, ...patch } : i)
+                : [...(n.data.inputs || []), { id: inputId, ...patch }],
+            },
+          }
         : n
     ));
-    setEdges((eds) => [...eds, {
-      id: `e-gb-${attrId}-${newInput.id}`,
+    setEdges((eds) => [...eds.filter((e) => e.targetHandle !== `${inputId}-target`), {
+      id: `e-gb-${attrId}-${inputId}`,
       source: sourceNodeId, sourceHandle: `${attrId}-source`,
-      target: nodeId,       targetHandle: `${newInput.id}-target`,
+      target: nodeId,       targetHandle: `${inputId}-target`,
       type: 'smoothstep',
       style: { stroke: '#0ea5e9', strokeWidth: 1.5 },
       markerEnd: { type: MarkerType.ArrowClosed, color: '#0ea5e9' },

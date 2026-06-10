@@ -76,8 +76,11 @@ export default function FunctionNode({ id, data }) {
     if (!raw) return;
     const payload = JSON.parse(raw);
     if (payload.sourceNodeId === id) return;
-    onFunctionInputDrop(id, payload);
-  }, [id, onFunctionInputDrop]);
+    // Same-name input already present → rebind it to the new source instead of
+    // appending a duplicate (this is how broken inputs are reconnected).
+    const existing = inputs.find((i) => i.attrName === payload.attrName);
+    onFunctionInputDrop(id, payload, existing?.id ?? null);
+  }, [id, inputs, onFunctionInputDrop]);
 
   const onOutputDragStart = useCallback((e, output) => {
     e.stopPropagation();

@@ -66,6 +66,21 @@ export function getUpstreamChainAttrs(nodeId, edges, nodes) {
   return [...seen.values()];
 }
 
+// A broken GroupBy/Function input references a deleted node by id. If a node
+// with the SAME LABEL exposing a SAME-NAME column exists again (the user
+// recreated the DataFrame), rebind the input to it instead of making the user
+// delete the red row and re-drag. Returns the healed input, or null.
+export function rebindBrokenInput(inp, edges, nodes) {
+  if (!inp.broken || nodes.some((n) => n.id === inp.sourceNodeId)) return null;
+  for (const n of nodes) {
+    if (n.data?.label !== inp.sourceNodeLabel) continue;
+    const attr = computeNodeOutputAttributes(n, edges, nodes).find((a) => a.name === inp.attrName);
+    if (!attr) continue;
+    return { ...inp, broken: false, sourceNodeId: n.id, sourceAttrId: attr.id, attrType: attr.type || inp.attrType };
+  }
+  return null;
+}
+
 // ── Column Lineage Tracing ─────────────────────────────────────────────────
 //
 // traceColumnUpstream: walks the graph backwards from (nodeId, colName)

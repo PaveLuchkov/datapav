@@ -289,7 +289,22 @@ Non-companion DFs connected to deleted operator: `_companionOf` untouched (may b
 // For each DF with broken attrs: getUpstreamAttrs(n.id, edges, nodes)
 // If upstream has attr.name === broken.name → broken: false, type updated from upstream
 ```
-No auto-heal for GroupBy/Function inputs — user must re-drag a replacement column.
+**Reconnect-by-name (drops + heal).** Dropping a column where a SAME-NAME
+target already exists reconnects instead of duplicating:
+- DF drop (`onAttributeDrop` + name match resolved in the component): no copy —
+  the lineage edge wires to the existing attribute, `broken` clears, type
+  refreshes from the source. Identical edges are deduped.
+- Function/GroupBy input drop (`onFunctionInputDrop` / `onGroupByInputDrop`
+  with `existingInputId`): the input is REBOUND in place — it keeps its id, so
+  `fromInputId` output links, `groupByInputIds` and aggregations survive; the
+  stale edge to the old source is replaced.
+
+**Input auto-heal** (`rebindBrokenInput` in nodeOutputAttrs, called from the
+function/groupby `refreshData` specs): a broken input whose `sourceNodeId` no
+longer exists rebinds automatically when a node with the SAME LABEL exposing a
+SAME-NAME column appears (the "deleted a DF, recreated it with the same name"
+refactor). Heal is data-only — the visual column edge is not recreated; a
+manual re-drag (which now rebinds) restores it.
 
 ### FunctionNode Extend Mode
 

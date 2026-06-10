@@ -22,8 +22,12 @@ export default function DataFrameNode({ id, data }) {
   const isTrackedAttr = useTrackedAttr(trackerHighlight);
   const dragRef = useDrag();
   const { startDrag, endDrag } = useDragSource(id, label);
-  // External column dropped onto the node → copy it and wire a lineage edge.
-  const { dropOver, dragHandlers } = useDropZone(id, (payload) => onAttributeDrop(id, payload));
+  // External column dropped onto the node → if a same-name column already
+  // exists here, reconnect to it (heals broken); otherwise copy + wire.
+  const { dropOver, dragHandlers } = useDropZone(id, (payload) => {
+    const existing = attributes.find((a) => a.name === payload.attrName);
+    onAttributeDrop(id, payload, existing?.id ?? null);
+  });
 
   // ── Same-node reorder (the insert-line drag) ───────────────────────────────
   const onAttrDragOver = useCallback((e, index) => {
