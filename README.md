@@ -4,7 +4,7 @@
 
 Built for data analysts and engineers who want to *draw* how data flows rather than describe it in text.
 
-**[Live Demo](https://dataloom.lpavs.com/) · [GitHub](https://github.com/PaveLuchkov/dataloom)**
+**[Live Demo](https://datapav.lpavs.com/) · [GitHub](https://github.com/PaveLuchkov/datapav)**
 
 ---
 
@@ -82,7 +82,7 @@ Runs entirely in browser localStorage. No data is sent to external servers. Expo
 ## Getting Started
 
 ```bash
-git clone https://github.com/PavelLuchkov/dataloom.git
+git clone https://github.com/PaveLuchkov/dataloom.git
 cd dataloom
 npm install
 npm start          # opens at http://localhost:3000
